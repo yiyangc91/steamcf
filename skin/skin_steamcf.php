@@ -197,7 +197,7 @@ $IPBHTML .= <<<EOF
             }
 
             // Hacky. Skip everything below if not expanded.
-            if (!optionsExpanded) 
+            if (!optionsExpanded && $('options').style.display == 'none') 
             {
                 return true;
             }
