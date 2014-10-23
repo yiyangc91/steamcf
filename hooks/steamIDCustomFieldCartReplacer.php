@@ -75,9 +75,8 @@ class SteamIDCustomFieldCartReplacer
         $extra = '';
 
         // Attempt to retrieve dude
-        $details = $steamDetails[$steamId];
-
-        if ($details) {
+        if (array_key_exists($steamId, $steamDetails)) {
+            $details = $steamDetails[$steamId];
             $steamId = $details->name;
             $extra = ' (' . $details->profile . ')';
         }
