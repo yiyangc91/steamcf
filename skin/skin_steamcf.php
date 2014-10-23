@@ -25,7 +25,7 @@ class skin_steamcf_0 extends output {
 //===========================================================================
 // Name: showField
 //===========================================================================
-function showField($f, $fname, $steamDetails, $steamSignInUrl, $linkUrl) {
+function showField($f, $fname, $steamDetails, $err, $steamSignInUrl, $linkUrl) {
 $IPBHTML = "";
 
 // We don't really know if the template is using <li/> inside the loop,
@@ -50,10 +50,10 @@ $IPBHTML .= <<<EOF
     <div id="errmsg_{$f->id}" class="message error" style="display: none;">
     </div>
     <ul>
-        <if test="useSteamId:|:!is_null($steamDetails)">
+        <if test="useSteamId:|:!is_null($steamDetails) || !is_null($err)">
             <li class="field checkbox">
-                <if test="isLoggedInSteam:|:$steamDetails->id || !is_null($steamDetails->error)">
-                    {parse template="showSteamInfo" group="steamcf" params="$f, $steamDetails, $linkUrl"}
+                <if test="isLoggedInSteam:|:!is_null($err) || $steamDetails->id">
+                    {parse template="showSteamInfo" group="steamcf" params="$f, $steamDetails, $err, $linkUrl"}
                 <else />
                     {parse template="showSteamLogin" group="steamcf" params="$f, $steamSignInUrl"}
                 </if>
@@ -83,14 +83,14 @@ return $IPBHTML;
 //===========================================================================
 // Name: showSteamInfo
 //===========================================================================
-function showSteamInfo($f, $steamDetails, $linkUrl) {
+function showSteamInfo($f, $steamDetails, $err, $linkUrl) {
 $IPBHTML = "";
 
 //--starthtml--//
 $IPBHTML .= <<<EOF
-<if test="isError:|:$steamDetails->error">
+<if test="isError:|:$err">
     <div class="message error">
-        <strong>{$steamDetails->error}</strong><br />
+        <strong>{$err}</strong><br />
         {$this->lang->words['steamcf_contact_admin']}
     </div>
 <else />

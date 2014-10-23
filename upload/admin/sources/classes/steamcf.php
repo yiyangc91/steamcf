@@ -50,8 +50,6 @@ class SteamIdCustomFieldDetails
     public $name;
     public $status;
 
-    public $error;
-
     /**
      * Creates the steam details, except with NULLS EVERYWHERE.
      * If you are reading this code, I am sorry.
@@ -65,25 +63,13 @@ class SteamIdCustomFieldDetails
         return new SteamIdCustomFieldDetails(NULL, NULL, NULL, NULL, NULL);
     }
 
-    /**
-     * Creates the steam details, except with nothing but an error.
-     * This could seriously be done better, this is a giant hack.
-     *
-     * @return SteamIdCustomFieldDetails ERROR details.
-     */
-    public static function createErrorDetails($errorMsg)
-    {
-        return new SteamIdCustomFieldDetails(NULL, NULL, NULL, NULL, NULL, $errorMsg);
-    }
-
-    public function __construct($steamId, $steamProfile, $steamAvatar, $steamName, $steamStatus, $error = NULL)
+    public function __construct($steamId, $steamProfile, $steamAvatar, $steamName, $steamStatus)
     {
         $this->id = $steamId;
         $this->profile = $steamProfile;
         $this->avatar = $steamAvatar;
         $this->name = $steamName;
         $this->status = $steamStatus;
-        $this->error = $error;
     }
 }
 
@@ -101,6 +87,9 @@ class SteamIdCustomFieldController
 
     const CACHE_KEY = 'steamcf_cache';
     const CACHE_EXPIRY_SECONDS = 300;
+
+    // Specified by Steam API
+    const MAX_BATCH_SIZE = 100;
 
     private $registry;
     private $settings;
@@ -141,7 +130,8 @@ class SteamIdCustomFieldController
     /**
      * Returns Steam details.
      *
-     * @return SteamIdCustomFieldDetails Steam details.
+     * @param string Steam ID.
+     * @return SteamIdCustomFieldDetails Steam details, or NULL if not found.
      */
     public function getSteamDetails($steamId)
     {
@@ -149,21 +139,39 @@ class SteamIdCustomFieldController
 
         // Check API keys
         if (!$this->steamApiKey) {
-            return SteamIdCustomFieldDetails::createErrorDetails($this->lang->words['steamcf_apikey_error']);
+            throw new Exception($this->lang->words['steamcf_apikey_error']);
         }
 
         // Ask the steam
-        try {
-            $results = $this->querySteamCached(array($steamId), $this->steamApiKey);
-            if (!array_key_exists($steamId, $results)) {
-                return SteamIdCustomFieldDetails::createErrorDetails($this->lang->words['steamcf_player_not_found']);
-            }
-        }
-        catch (Exception $e) {
-            return SteamIdCustomFieldDetails::createErrorDetails($e->getMessage());
+        $results = $this->querySteamCached(array($steamId), $this->steamApiKey);
+        if (!array_key_exists($steamId, $results)) {
+            return NULL;
         }
 
         return $results[$steamId];
+    }
+
+    /**
+     * Returns Steam details as an array.
+     *
+     * @param array Array of steam IDs.
+     * @return array Array of Steam details.
+     */
+    public function getSteamDetailsBatch($steamIds)
+    {
+        // Check API keys
+        if (!$this->steamApiKey) {
+            throw new Exception($this->lang->words['steamcf_apikey_error']);
+        }
+
+        $chunkedSteamIds = array_chunk($steamIds, self::MAX_BATCH_SIZE);
+        $results = array();
+
+        foreach ($chunkedSteamIds as $chunk) {
+            $results += $this->querySteamCached($chunk, $this->steamApiKey);
+        }
+
+        return $results;
     }
 
     private function querySteamCached($steamIds, $apiKey)
@@ -186,7 +194,7 @@ class SteamIdCustomFieldController
 
         $queriedResults = $this->querySteam($untouchedIds, $apiKey);
         foreach ($queriedResults as $result) {
-            $cache[$steamId] = new SteamIdCacheEntry($result, time() + self::CACHE_EXPIRY_SECONDS);
+            $cache[$result->id] = new SteamIdCacheEntry($result, time() + self::CACHE_EXPIRY_SECONDS);
         }
 
         $this->cache->setCache(self::CACHE_KEY, $cache, array('array'=>1, 'donow'=>1));

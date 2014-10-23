@@ -25,7 +25,7 @@
  * 
  * @author Yiyang Chen <yiyangc91@gmail.com>
  */
-class steamIDCustomFieldCartReplacer
+class SteamIDCustomFieldCartReplacer
 {
     const PRE_LOOP_TAG = '<!--hook.foreach.skin_nexus_payments.viewCart.cfields.inner.pre-->';
     const POST_LOOP_TAG = '<!--hook.foreach.skin_nexus_payments.viewCart.cfields.inner.post-->';
@@ -37,6 +37,9 @@ class steamIDCustomFieldCartReplacer
     // Private use
     const STEAM_ID = 0;
     const STEAM_NAME = 1;
+
+    const EM_POS = 0;
+    const EM_LEN = 1;
 
     const LANG_PACK_NAME = 'public_steamcf';
     const LANG_APP_KEY = 'nexus';
@@ -65,20 +68,21 @@ class steamIDCustomFieldCartReplacer
      * @param mixed Data from matching Steam ID.
      * @return string New output.
      */
-    private function createNewSteamOutput($data)
+    private function createNewSteamOutput($data, $steamDetails)
     {
         $steamName = $data[self::STEAM_NAME] ? $data[self::STEAM_NAME] : $this->lang->words['steamcf_steam_id'];
         $steamId = $data[self::STEAM_ID];
         $extra = '';
 
         // Attempt to retrieve dude
-        $details = $this->controller->getSteamDetails($steamId);
-        if ($details->error) {
-            $extra = ' ERROR (' . $details->error . ')';
-        }
-        else {
+        $details = $steamDetails[$steamId];
+
+        if ($details) {
             $steamId = $details->name;
             $extra = ' (' . $details->profile . ')';
+        }
+        else {
+            $extra = ' WARNING (' . $this->lang->words['steamcf_player_not_found'] . ')';
         }
 
         // If everything good
@@ -106,28 +110,21 @@ class steamIDCustomFieldCartReplacer
         }
     }
 
-    /**
-     * In this replace hook, we loop over every potential steam ID in
-     * each cart item details, and replace it with a steam name.
-     *
-     * @param	string		Output
-     * @param	string		Hook key
-     * @return	string		Output parsed
-     */
-    public function replaceOutput($output, $key)
+    private static function getReplacementPositions($output)
     {
         $offset = 0;
+        $positions = array();
 
         while (true) {
             $posPre = strpos($output, self::PRE_LOOP_TAG, $offset);
             if (!$posPre) {
-                return $output;
+                return $positions;
             }
             $posPreEnd = $posPre+strlen(self::PRE_LOOP_TAG);
             $posPost = strpos($output, self::POST_LOOP_TAG, $posPreEnd);
             if (!$posPost) {
                 // Unexpected...
-                return $output;
+                return $positions;
             }
             $data_length = $posPost - $posPreEnd;
 
@@ -138,36 +135,91 @@ class steamIDCustomFieldCartReplacer
                 || $emPos >= $posPost
                 || $emEndPos+strlen(self::EM_CLOSE_TAG) >= $posPost) {
                 // Some shit broke with finding <em>
-                return $output;
+                return $positions;
             }
-
-            // I call this the yolo replace
             $emDataLength = $emEndPos - $emPos;
+
+            // Track positions of Steam IDs
+            $positions[] = array(
+                self::EM_POS => $emPos,
+                self::EM_LEN => $emDataLength,
+            );
+
+            $offset = $posPost + strlen(self::POST_LOOP_TAG);
+        }
+
+        return $positions;
+    }
+
+    /**
+     * In this replace hook, we loop over every potential steam ID in
+     * each cart item details, and replace it with a steam name.
+     *
+     * @param	string		Output
+     * @param	string		Hook key
+     * @return	string		Output parsed
+     */
+    public function replaceOutput($output, $key)
+    {
+        $positions = self::getReplacementPositions($output);
+        $steamDatas = array();
+
+        foreach ($positions as $position) {
+            $emPos = $position[self::EM_POS];
+            $emDataLength = $position[self::EM_LEN];
+
             $emData = substr($output, $emPos, $emDataLength);
             $splitEmData = preg_split('/<br *\\/?>/', $emData);
+            
+            foreach ($splitEmData as $part) {
+                $steamDatas[] = self::getSteamDataIfMatch($part);
+            }
+        }
+
+        $steamIds = array();
+        $omgErrors = NULL;
+        foreach ($steamDatas as $steamData) {
+            $steamIds[] = $steamData[self::STEAM_ID];
+        }
+        try {
+            $steamDetails = $this->controller->getSteamDetailsBatch($steamIds);
+        }
+        catch (Exception $e) {
+            $omgErrors = $e->getMessage();
+        }
+
+        // Loop over the positions again
+        $i = 0;
+        $correction = 0;
+        foreach ($positions as $position) {
+            $emPos = $position[self::EM_POS];
+            $emDataLength = $position[self::EM_LEN];
+
+            $emData = substr($output, $emPos+$correction, $emDataLength);
+            $splitEmData = preg_split('/<br *\\/?>/', $emData);
+            
             $innerOutput = array();
             foreach ($splitEmData as $part) {
-                $data = self::getSteamDataIfMatch($part);
-                if ($data != NULL) {
-                    $innerOutput[] = $this->createNewSteamOutput($data);
+                if ($steamDatas[$i] != NULL && !$omgErrors) {
+                    $innerOutput[] = $this->createNewSteamOutput($steamDatas[$i], $steamDetails);
+                }
+                else if ($omgErrors) {
+                    $innerOutput[] = $part . ' ERROR (' . $omgErrors . ')';
                 }
                 else {
                     $innerOutput[] = $part;
                 }
+                $i++;
             }
-
             $innerOutputStr = implode(self::BR_TAG, $innerOutput);
             $newDataLength = strlen($innerOutputStr);
-            $output = substr_replace($output, $innerOutputStr, $emPos, $emDataLength);
-            $offset = $posPost
-                + strlen(self::POST_LOOP_TAG)
-                - $emDataLength
-                + $newDataLength;
+            $output = substr_replace($output, $innerOutputStr, $emPos+$correction, $emDataLength);
+
+            $correction += $newDataLength - $emDataLength;
         }
 
         return $output;
     }
-
 }
 
 ?>

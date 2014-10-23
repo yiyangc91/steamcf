@@ -49,6 +49,7 @@ class SteamIDCustomFieldReplacer
     const LANG_PACK_NAME = 'public_steamcf';
     const LANG_APP_KEY = 'nexus';
 
+    private $lang;
     private $registry;
     private $member;
     private $settings;
@@ -74,14 +75,15 @@ class SteamIDCustomFieldReplacer
         $boardUrl = $this->settings['logins_over_https'] ? $this->settings['board_url_https'] : $this->settings['board_url'];
         $linkUrl = $boardUrl.'/interface/board/linksteam.php';
 
-        // Mock things
-        if (self::ENABLE_MOCK) {
-            $steamId = self::MOCK_STEAM_ID;
-            $steamDetails = $this->controller->getSteamDetails($steamId);
-        }
-        else {
-            // Check if that Steam OAuth plugin is installed
-            if ($this->steamOAuthExists) {
+        // Get Steam Details
+        $err = NULL;
+        $steamDetails = NULL;
+        try {
+            if (self::ENABLE_MOCK) {
+                $steamId = self::MOCK_STEAM_ID;
+                $steamDetails = $this->controller->getSteamDetails($steamId);
+            }
+            else if ($this->steamOAuthExists) {
                 // Steam OAuth installed
                 $steamId = $this->member->getProperty('steamid');
                 if (!$steamId) {
@@ -90,20 +92,23 @@ class SteamIDCustomFieldReplacer
                 }
                 else {
                     $steamDetails = $this->controller->getSteamDetails($steamId);
+                    if (!$steamDetails) {
+                        $err = $this->lang->words['steamcf_player_not_found'];
+                    }
                 }
             }
-            else {
-                // Steam OAuth not installed
-                $steamDetails = NULL;
-            }
+        }
+        catch (Exception $e) {
+            $err = $e->getMessage();
         }
 
-        return $this->registry->output->getTemplate(self::TEMPLATE_NAME)->showField($customField, $steamFieldName, $steamDetails, $steamOAuthURL, $linkUrl);
+        return $this->registry->output->getTemplate(self::TEMPLATE_NAME)->showField($customField, $steamFieldName, $steamDetails, $err, $steamOAuthURL, $linkUrl);
     }
 
     public function __construct()
     {
-        ipsRegistry::getClass('class_localization')->loadLanguageFile(array(self::LANG_PACK_NAME), self::LANG_APP_KEY);
+        $this->lang = ipsRegistry::getClass('class_localization');
+        $this->lang->loadLanguageFile(array(self::LANG_PACK_NAME), self::LANG_APP_KEY);
 
         $this->registry	= ipsRegistry::instance();
         $this->member = ipsRegistry::member();
