@@ -21,11 +21,28 @@
  */
 
 /**
- * Dumb struct to handle steam ID details
+ * Dumb struct to hold a cache entry.
  *
  * @author Yiyang Chen <yiyangc91@gmail.com>
  */
-class steamIDCustomFieldDetails
+class SteamIdCacheEntry
+{
+    public $details;
+    public $expiryDate;
+
+    public function __construct($details, $expiryDate)
+    {
+        $this->details = $details;
+        $this->expiryDate = $expiryDate;
+    }
+}
+
+/**
+ * Dumb struct to handle steam ID details, to output to the user.
+ *
+ * @author Yiyang Chen <yiyangc91@gmail.com>
+ */
+class SteamIdCustomFieldDetails
 {
     public $id;
     public $profile;
@@ -37,25 +54,26 @@ class steamIDCustomFieldDetails
 
     /**
      * Creates the steam details, except with NULLS EVERYWHERE.
+     * If you are reading this code, I am sorry.
      * 
-     * @return steamIDCustomFieldDetails NULL details.
+     * @return SteamIdCustomFieldDetails NULL details.
      */
     public static function createEmptyDetails()
     {
         // Oh god, nulls everywhere.
         // This could probably be done better
-        return new steamIDCustomFieldDetails(NULL, NULL, NULL, NULL, NULL);
+        return new SteamIdCustomFieldDetails(NULL, NULL, NULL, NULL, NULL);
     }
 
     /**
      * Creates the steam details, except with nothing but an error.
      * This could seriously be done better, this is a giant hack.
      *
-     * @return steamIDCustomFieldDetails ERROR details.
+     * @return SteamIdCustomFieldDetails ERROR details.
      */
     public static function createErrorDetails($errorMsg)
     {
-        return new steamIDCustomFieldDetails(NULL, NULL, NULL, NULL, NULL, $errorMsg);
+        return new SteamIdCustomFieldDetails(NULL, NULL, NULL, NULL, NULL, $errorMsg);
     }
 
     public function __construct($steamId, $steamProfile, $steamAvatar, $steamName, $steamStatus, $error = NULL)
@@ -74,16 +92,20 @@ class steamIDCustomFieldDetails
  *
  * @author Yiyang Chen <yiyangc91@gmail.com>
  */
-class steamIDCustomFieldController
+class SteamIdCustomFieldController
 {
     const STEAM_API_GET_PLAYER_SUMMARIES = "http://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/";
 
     const LANG_PACK_NAME = 'public_steamcf';
     const LANG_APP_KEY = 'nexus';
 
+    const CACHE_KEY = 'steamcf_cache';
+    const CACHE_EXPIRY_SECONDS = 300;
+
     private $registry;
     private $settings;
     private $lang;
+    private $cache;
 
     private $steamApiKey;
     private $classFileManagement;
@@ -94,8 +116,11 @@ class steamIDCustomFieldController
     {
         $this->registry = $registry;
         $this->settings =& $this->registry->fetchSettings();
+
         $this->lang = $this->registry->getClass('class_localization');
         $this->lang->loadLanguageFile(array(self::LANG_PACK_NAME), self::LANG_APP_KEY);
+
+        $this->cache = $this->registry->cache();
 
         $this->steamApiKey = $this->settings['steamcf_api_key'];
 
@@ -116,22 +141,67 @@ class steamIDCustomFieldController
     /**
      * Returns Steam details.
      *
-     * @return steamIDCustomFieldDetails Steam details.
+     * @return SteamIdCustomFieldDetails Steam details.
      */
-    public function getSteamDetails($steamid)
+    public function getSteamDetails($steamId)
     {
-        $steamid = urlencode($steamid);
+        $steamId = urlencode($steamId);
 
-        // Check stupid API keys first
+        // Check API keys
         if (!$this->steamApiKey) {
-            return steamIDCustomFieldDetails::createErrorDetails($this->lang->words['steamcf_apikey_error']);
+            return SteamIdCustomFieldDetails::createErrorDetails($this->lang->words['steamcf_apikey_error']);
         }
-        $playerSummaryJson = $this->classFileManagement->getFileContents(self::STEAM_API_GET_PLAYER_SUMMARIES . "?key={$this->steamApiKey}&steamids={$steamid}&format=json");
 
-        // Check that we are not 200, and error out
+        // Ask the steam
+        $results = $this->querySteamCached(array($steamId), $this->steamApiKey);
+        if (!array_key_exists($steamId, $results)) {
+            return SteamIdCustomFieldDetails::createErrorDetails($this->lang->words['steamcf_player_not_found']);
+        }
+
+        return $results[$steamId];
+    }
+
+    private function querySteamCached($steamIds, $apiKey)
+    {
+        $untouchedIds = array();
+        $results = array();
+        $cache = $this->cache->getCache(self::CACHE_KEY);
+        if (!$cache) {
+            $cache = array();
+        }
+
+        foreach ($steamIds as $steamId) {
+            if (array_key_exists($steamId, $cache) && time() < $cache[$steamId]->expiryDate) {
+                $results[$steamId] = $cache[$steamId]->details;
+            }
+            else {
+                $untouchedIds[] = $steamId;
+            }
+        }
+
+        $queriedResults = $this->querySteam($untouchedIds, $apiKey);
+        foreach ($queriedResults as $result) {
+            $cache[$steamId] = new SteamIdCacheEntry($result, time() + self::CACHE_EXPIRY_SECONDS);
+        }
+
+        $this->cache->setCache(self::CACHE_KEY, $cache, array('array'=>1, 'donow'=>1));
+        return $results + $queriedResults;
+    }
+
+    private function querySteam($steamIds, $apiKey)
+    {
+        $results = array();
+        if (!count($steamIds)) {
+            return $results;
+        }
+
+        // Get the Steam IDs from Steam
+        $joinedIds = implode(',', $steamIds);
+        $playerSummaryJson = $this->classFileManagement->getFileContents(self::STEAM_API_GET_PLAYER_SUMMARIES . "?key={$apiKey}&steamids={$joinedIds}&format=json");
+
+        // Check status code
         $status_code = $this->classFileManagement->http_status_code;
 				if ($status_code != 200) {
-            // Great. API key is fucked. Error everything?
             $errors = $this->classFileManagement->errors;
             if (count($errors)) {
                 $error = $errors[0];
@@ -140,16 +210,21 @@ class steamIDCustomFieldController
             else {
                 $error = $this->lang->words['steamcf_api_error'] . $status_code;
             }
-            return steamIDCustomFieldDetails::createErrorDetails($error);
+            throw new Exception($error);
         }
 
         $playerSummary = json_decode($playerSummaryJson, true);
 
-        if (count($playerSummary['response']['players']) != 1) {
-            return steamIDCustomFieldDetails::createErrorDetails($this->lang->words['steamcf_player_not_found']);
+        // Return an map of steamId => details
+        foreach ($playerSummary['response']['players'] as $player) {
+            $results[$player['steamid']] = new SteamIdCustomFieldDetails(
+                $player['steamid'],
+                $player['profileurl'],
+                $player['avatarmedium'],
+                $player['personaname'],
+                $this->personaStateToString($player['personastate']));
         }
-        $player = $playerSummary['response']['players'][0];
-        return new steamIDCustomFieldDetails($steamid, $player['profileurl'], $player['avatarmedium'], $player['personaname'], $this->personaStateToString($player['personastate']));
+        return $results;
     }
 
     /**

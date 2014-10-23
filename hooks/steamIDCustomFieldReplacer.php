@@ -115,9 +115,9 @@ class SteamIDCustomFieldReplacer
             $this->steamOAuth = IPSLib::loadLibrary(IPS_ROOT_PATH . '/sources/loginauth/steam/lib/steam_openid.php', 'SteamSignIn');
         }
 
-        $this->detailsClass = IPSLib::loadLibrary(IPS_ROOT_PATH . '/sources/classes/steamcf.php', 'SteamIDCustomFieldDetails');
+        $this->detailsClass = IPSLib::loadLibrary(IPS_ROOT_PATH . '/sources/classes/steamcf.php', 'SteamIdCustomFieldDetails');
 
-        $controllerClass = IPSLib::loadLibrary(IPS_ROOT_PATH . '/sources/classes/steamcf.php', 'SteamIDCustomFieldController');
+        $controllerClass = IPSLib::loadLibrary(IPS_ROOT_PATH . '/sources/classes/steamcf.php', 'SteamIdCustomFieldController');
         $this->controller = new $controllerClass($this->registry);
     }
     

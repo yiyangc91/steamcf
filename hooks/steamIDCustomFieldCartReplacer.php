@@ -53,7 +53,7 @@ class steamIDCustomFieldCartReplacer
 
         $this->registry	= ipsRegistry::instance();
 
-        $controllerClass = IPSLib::loadLibrary(IPS_ROOT_PATH . '/sources/classes/steamcf.php', 'SteamIDCustomFieldController');
+        $controllerClass = IPSLib::loadLibrary(IPS_ROOT_PATH . '/sources/classes/steamcf.php', 'SteamIdCustomFieldController');
         $this->controller = new $controllerClass($this->registry);
     }
     
