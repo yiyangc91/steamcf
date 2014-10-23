@@ -153,9 +153,14 @@ class SteamIdCustomFieldController
         }
 
         // Ask the steam
-        $results = $this->querySteamCached(array($steamId), $this->steamApiKey);
-        if (!array_key_exists($steamId, $results)) {
-            return SteamIdCustomFieldDetails::createErrorDetails($this->lang->words['steamcf_player_not_found']);
+        try {
+            $results = $this->querySteamCached(array($steamId), $this->steamApiKey);
+            if (!array_key_exists($steamId, $results)) {
+                return SteamIdCustomFieldDetails::createErrorDetails($this->lang->words['steamcf_player_not_found']);
+            }
+        }
+        catch (Exception $e) {
+            return SteamIdCustomFieldDetails::createErrorDetails($e->getMessage());
         }
 
         return $results[$steamId];
