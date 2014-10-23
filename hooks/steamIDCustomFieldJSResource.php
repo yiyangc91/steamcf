@@ -23,17 +23,24 @@
 /**
  * A hook to inject our custom field JS resources
  */
-class steamIDCustomFieldJSResource
+class SteamIDCustomFieldJSResource
 {
+    const STEAMCF_HOOK_TEMPLATE_NAME = 'steamcf';
+
+    const LANG_PACK_NAME = 'public_steamcf';
+    const LANG_APP_KEY = 'nexus';
+
     private $registry;
 
     public function getOutput()
     {
-        return $this->registry->output->getTemplate('steamcf')->jsResources();
+        return $this->registry->output->getTemplate(self::STEAMCF_HOOK_TEMPLATE_NAME)->jsResources();
     }
 
     public function __construct()
     {
+        ipsRegistry::getClass('class_localization')->loadLanguageFile(array(self::LANG_PACK_NAME), self::LANG_APP_KEY);
+
         $this->registry = ipsRegistry::instance();
     }
 }

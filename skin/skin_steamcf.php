@@ -31,7 +31,6 @@ $IPBHTML = "";
 // We don't really know if the template is using <li/> inside the loop,
 // neither do we know if they've moved out the script element.
 // Don't really know how to work around this without having Nexus itself
-//
 // define a proper template method that is responsible for rendering the
 // entire custom field row...
 
@@ -149,72 +148,59 @@ $IPBHTML .= <<<EOF
     var steamCF = Array();
     var steamCFRegex = /^[0-9]{17}$/i;
 
-    function steamCFErrorCheckValue(value)
-    {
-        if (!value)
-        {
+    function steamCFErrorCheckValue(value) {
+        if (!value) {
             return "{$this->lang->words['steamcf_empty_error']}";
         }
 
-        if (!steamCFRegex.match(value))
-        {
+        if (!steamCFRegex.match(value)) {
             return "{$this->lang->words['steamcf_validation_error']}: '" + value + "'";
         }
 
         return '';
     }
 
-    function steamCFFillSteamDetails()
-    {
+    function steamCFFillSteamDetails() {
         var productForm = $('product-form');
         var numErrors = 0;
 
-        for (var zomg = 0; zomg < steamCF.length; zomg++)
-        {
+        for (var zomg = 0; zomg < steamCF.length; zomg++) {
             var finalValue;
             var cfId = steamCF[zomg];
             var doWhat = productForm.elements.namedItem('steam_use_'+cfId).value;
             var requiredField = $('errmsg_'+cfId);
 
-            if (doWhat === 'use_steam')
-            {
+            if (doWhat === 'use_steam') {
                 finalValue = productForm.elements.namedItem('steam_use_id_'+cfId).value;
             }
-            else if (doWhat == 'use_gift')
-            {
+            else if (doWhat == 'use_gift') {
                 finalValue = productForm.elements.namedItem('steam_gift_to_'+cfId).value;
             }
-            else if (doWhat == 'use_none')
-            {
+            else if (doWhat == 'use_none') {
                 // None option
                 productForm.elements.namedItem('field'+cfId).value = '';
                 requiredField.style.display = 'none';
                 continue;
             }
-            else
-            {
+            else {
                 finalValue = '';
             }
 
             // Hacky. Skip everything below if not expanded.
-            if (!optionsExpanded && $('options').style.display == 'none') 
-            {
+            if (!optionsExpanded && $('options').style.display == 'none') {
                 return true;
             }
 
             // Derpy error checking
             var error = steamCFErrorCheckValue(finalValue);
             productForm.elements.namedItem('field'+cfId).value = finalValue;
-            if (requiredField)
-            {
-                if (error)
-                {
+            if (requiredField) {
+                if (error) {
                     requiredField.style.display = '';
                     requiredField.innerHTML = error;
                     numErrors++;
                 }
-                else
-                {
+                else {
                     requiredField.style.display = 'none';
                 }
             }
@@ -223,28 +209,21 @@ $IPBHTML .= <<<EOF
         return numErrors == 0;
     }
 
-    function steamCFMangleClick(element)
-    {
-        if (element.onclick)
-        {
+    function steamCFMangleClick(element) {
+        if (element.onclick) {
             var shibe = element.onclick;
-            var awesomeShibe = function(e)
-            {
+            var awesomeShibe = function(e) {
                 var success = steamCFFillSteamDetails();
-                if (!success)
-                {
+                if (!success) {
                     return false;
                 }
                 shibe();
             };
             element.onclick = awesomeShibe;
         }
-        else
-        {
-            element.onclick = function(e)
-            {
-                if (!steamCFFillSteamDetails())
-                {
+        else {
+            element.onclick = function(e) {
+                if (!steamCFFillSteamDetails()) {
                     return false;
                 }
             };
@@ -254,31 +233,25 @@ $IPBHTML .= <<<EOF
 
     // Attach another click event to the "Add to cart" button.
     // Unfortunately no jquery here, so we manually get this to run on document load
-    function steamCFMangleAddCart()
-    {
+    function steamCFMangleAddCart() {
         steamCFMangleClick($('expandOptionsButton'));
         steamCFMangleClick($('submitButton'));
     }
 
     // Ugh
-    if (window.attachEvent)
-    {
+    if (window.attachEvent) {
         window.attachEvent('onload', steamCFMangleAddCart);
     }
-    else
-    {
-        if (window.onload)
-        {
+    else {
+        if (window.onload) {
             var shibe = window.onload;
-            var awesomeOnload = function()
-            {
+            var awesomeOnload = function() {
                 steamCFMangleAddCart();
                 shibe();
             };
             window.onload = awesomeOnload;
         }
-        else
-        {
+        else {
             window.onload = steamCFMangleAddCart;
         }
     }

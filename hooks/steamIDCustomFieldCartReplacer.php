@@ -27,48 +27,56 @@
  */
 class steamIDCustomFieldCartReplacer
 {
-    const STEAMCF_PRE_LOOP_TAG = '<!--hook.foreach.skin_nexus_payments.viewCart.cfields.inner.pre-->';
-    const STEAMCF_POST_LOOP_TAG = '<!--hook.foreach.skin_nexus_payments.viewCart.cfields.inner.post-->';
-
-    const STEAMCF_STEAM_ID_FIELD_NAME = 'SteamID';
-    const STEAMCF_STEAM_ID_FIELD_TYPE = 'text';
-    const STEAMCF_HOOK_TEMPLATE_NAME = 'steamcf';
+    const PRE_LOOP_TAG = '<!--hook.foreach.skin_nexus_payments.viewCart.cfields.inner.pre-->';
+    const POST_LOOP_TAG = '<!--hook.foreach.skin_nexus_payments.viewCart.cfields.inner.post-->';
 
     const EM_TAG = '<em>';
     const EM_CLOSE_TAG = '</em>';
     const BR_TAG = '<br />';
 
-    private $registry;
+    // Private use
+    const STEAM_ID = 0;
+    const STEAM_NAME = 1;
 
-    private $detailsClass;
+    const LANG_PACK_NAME = 'public_steamcf';
+    const LANG_APP_KEY = 'nexus';
+
+    private $registry;
+    private $lang;
+
     private $controller;
 
     public function __construct()
     {
+        $this->lang = ipsRegistry::getClass('class_localization');
+        $this->lang->loadLanguageFile(array(self::LANG_PACK_NAME), self::LANG_APP_KEY);
+
         $this->registry	= ipsRegistry::instance();
 
-        $this->detailsClass = IPSLib::loadLibrary(IPS_ROOT_PATH . '/sources/classes/steamcf.php', 'steamIDCustomFieldDetails');
-
-        $controllerClass = IPSLib::loadLibrary(IPS_ROOT_PATH . '/sources/classes/steamcf.php', 'steamIDCustomFieldController');
+        $controllerClass = IPSLib::loadLibrary(IPS_ROOT_PATH . '/sources/classes/steamcf.php', 'SteamIDCustomFieldController');
         $this->controller = new $controllerClass($this->registry);
     }
     
     public function getOutput() {}
 
-    private function replaceSteam($data)
+    /**
+     * Creates a new customfield output to put in the cart details area.
+     *
+     * @param mixed Data from matching Steam ID.
+     * @return string New output.
+     */
+    private function createNewSteamOutput($data)
     {
-        $steamName = $data['steamName'] ? $data['steamName'] : 'Steam';
-        $steamId = $data['steamId'];
+        $steamName = $data[self::STEAM_NAME] ? $data[self::STEAM_NAME] : $this->lang->words['steamcf_steam_id'];
+        $steamId = $data[self::STEAM_ID];
         $extra = '';
 
         // Attempt to retrieve dude
         $details = $this->controller->getSteamDetails($steamId);
-        if ($details->error)
-        {
+        if ($details->error) {
             $extra = ' ERROR (' . $details->error . ')';
         }
-        else
-        {
+        else {
             $steamId = $details->name;
             $extra = ' (' . $details->profile . ')';
         }
@@ -77,23 +85,30 @@ class steamIDCustomFieldCartReplacer
         return $steamName . ': ' . $steamId . $extra;
     }
 
-    private static function isPartSteamID($part)
+    /**
+     * If we can find the steam name and the steam ID, then return it.
+     *
+     * @param string The extracted custom field data.
+     * @return mixed An array containing the steam name and steam ID,
+     *               or NULL if we could not find either.
+     */
+    private static function getSteamDataIfMatch($part)
     {
         $success = preg_match('/^SteamID([a-zA-Z]*): (.+)$/', $part, $matches);
-        if ($success)
-        {
+        if ($success) {
             return array(
-                'steamName' => $matches[1],
-                'steamId' => $matches[2]
+                self::STEAM_NAME => $matches[1],
+                self::STEAM_ID => $matches[2]
             );
         }
-        else
-        {
+        else {
             return NULL;
         }
     }
 
     /**
+     * In this replace hook, we loop over every potential steam ID in
+     * each cart item details, and replace it with a steam name.
      *
      * @param	string		Output
      * @param	string		Hook key
@@ -101,69 +116,53 @@ class steamIDCustomFieldCartReplacer
      */
     public function replaceOutput($output, $key)
     {
-        $original_parameters = $this->registry->output->getTemplate('nexus_payments')->functionData['viewCart'];
-        if (!is_array($original_parameters) || !count($original_parameters))
-        {
-            return $output;
-        }
-
         $offset = 0;
 
-        foreach ($original_parameters as $parameter)
-        {
-            $cart = $parameter['cart'];
+        while (true) {
+            $posPre = strpos($output, self::PRE_LOOP_TAG, $offset);
+            if (!$posPre) {
+                return $output;
+            }
+            $posPreEnd = $posPre+strlen(self::PRE_LOOP_TAG);
+            $posPost = strpos($output, self::POST_LOOP_TAG, $posPreEnd);
+            if (!$posPost) {
+                // Unexpected...
+                return $output;
+            }
+            $data_length = $posPost - $posPreEnd;
 
-            foreach ($cart['items'] as $id => $i)
-            {
-                foreach ($i['_cfields'] as $k => $v)
-                {
-                    $pos_pre = strpos($output, self::STEAMCF_PRE_LOOP_TAG, $offset);
-                    if (!$pos_pre) {
-                        // Wtf? This is very strange.
-                        // Guess we'll silently fail...
-                        return $output;
-                    }
-                    $pos_pre_end = $pos_pre+strlen(self::STEAMCF_PRE_LOOP_TAG);
-                    $pos_post = strpos($output, self::STEAMCF_POST_LOOP_TAG, $pos_pre_end);
-                    if (!$pos_post) {
-                        // Um..? So we're missing the post. Silently fail again.
-                        return $output;
-                    }
-                    $data_length = $pos_post - $pos_pre_end;
+            // Find contents of emphasis tag
+            $emPos = strpos($output, self::EM_TAG, $posPreEnd) + strlen(self::EM_TAG);
+            $emEndPos = strpos($output, self::EM_CLOSE_TAG, $emPos);
+            if (!$emPos || !$emEndPos
+                || $emPos >= $posPost
+                || $emEndPos+strlen(self::EM_CLOSE_TAG) >= $posPost) {
+                // Some shit broke with finding <em>
+                return $output;
+            }
 
-                    // Also find the fuckin <em> bullshit. Dis gon b fun
-                    $em_pos = strpos($output, self::EM_TAG, $pos_pre_end) + strlen(self::EM_TAG);
-                    $em_end_pos = strpos($output, self::EM_CLOSE_TAG, $em_pos);
-                    if ($em_pos >= $pos_post || $em_end_pos+strlen(self::EM_CLOSE_TAG) >= $pos_post)
-                    {
-                        // Some shit broke with finding <em>
-                        return $output;
-                    }
-
-                    // I call this the yolo replace
-                    $em_data_len = $em_end_pos - $em_pos;
-                    $em_data = substr($output, $em_pos, $em_data_len);
-                    $split_em_data = preg_split('/<br *\\/?>/', $em_data);
-                    $inner_output = array();
-                    foreach ($split_em_data as $part)
-                    {
-                        $data = self::isPartSteamID($part);
-                        if ($data != NULL)
-                        {
-                            $inner_output[] = $this->replaceSteam($data);
-                        }
-                        else
-                        {
-                            $inner_output[] = $part;
-                        }
-                    }
-
-                    $inner_output_str = implode('<br />', $inner_output);
-                    $new_data_len = strlen($inner_output_str);
-                    $output = substr_replace($output, $inner_output_str, $em_pos, $em_data_len);
-                    $offset = $pos_post + strlen(self::STEAMCF_POST_LOOP_TAG) - $em_data_len + $new_data_len;
+            // I call this the yolo replace
+            $emDataLength = $emEndPos - $emPos;
+            $emData = substr($output, $emPos, $emDataLength);
+            $splitEmData = preg_split('/<br *\\/?>/', $emData);
+            $innerOutput = array();
+            foreach ($splitEmData as $part) {
+                $data = self::getSteamDataIfMatch($part);
+                if ($data != NULL) {
+                    $innerOutput[] = $this->createNewSteamOutput($data);
+                }
+                else {
+                    $innerOutput[] = $part;
                 }
             }
+
+            $innerOutputStr = implode(self::BR_TAG, $innerOutput);
+            $newDataLength = strlen($innerOutputStr);
+            $output = substr_replace($output, $innerOutputStr, $emPos, $emDataLength);
+            $offset = $posPost
+                + strlen(self::POST_LOOP_TAG)
+                - $emDataLength
+                + $newDataLength;
         }
 
         return $output;

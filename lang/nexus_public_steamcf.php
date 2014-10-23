@@ -1,3 +1,6 @@
+<?php
+
+$lang = array(
 'steamcf_my_account' => "My Account",
 'steamcf_steam_id' => "Steam ID",
 'steamcf_ignored' => "None",
@@ -17,3 +20,4 @@
 'steamcf_status_snooze' => "Snooze",
 'steamcf_status_looking_to_trade' => "Looking to Trade",
 'steamcf_status_looking_to_play' => "Looking to Play"
+);

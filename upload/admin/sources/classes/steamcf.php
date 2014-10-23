@@ -78,6 +78,9 @@ class steamIDCustomFieldController
 {
     const STEAM_API_GET_PLAYER_SUMMARIES = "http://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/";
 
+    const LANG_PACK_NAME = 'public_steamcf';
+    const LANG_APP_KEY = 'nexus';
+
     private $registry;
     private $settings;
     private $lang;
@@ -92,6 +95,7 @@ class steamIDCustomFieldController
         $this->registry = $registry;
         $this->settings =& $this->registry->fetchSettings();
         $this->lang = $this->registry->getClass('class_localization');
+        $this->lang->loadLanguageFile(array(self::LANG_PACK_NAME), self::LANG_APP_KEY);
 
         $this->steamApiKey = $this->settings['steamcf_api_key'];
 
@@ -119,25 +123,21 @@ class steamIDCustomFieldController
         $steamid = urlencode($steamid);
 
         // Check stupid API keys first
-        if (!$this->steamApiKey)
-        {
+        if (!$this->steamApiKey) {
             return steamIDCustomFieldDetails::createErrorDetails($this->lang->words['steamcf_apikey_error']);
         }
         $playerSummaryJson = $this->classFileManagement->getFileContents(self::STEAM_API_GET_PLAYER_SUMMARIES . "?key={$this->steamApiKey}&steamids={$steamid}&format=json");
 
         // Check that we are not 200, and error out
         $status_code = $this->classFileManagement->http_status_code;
-				if ($status_code != 200)
-        {
+				if ($status_code != 200) {
             // Great. API key is fucked. Error everything?
             $errors = $this->classFileManagement->errors;
-            if (count($errors))
-            {
+            if (count($errors)) {
                 $error = $errors[0];
                 $this->classFileManagement->errors = array();
             }
-            else
-            {
+            else {
                 $error = $this->lang->words['steamcf_api_error'] . $status_code;
             }
             return steamIDCustomFieldDetails::createErrorDetails($error);
@@ -145,8 +145,7 @@ class steamIDCustomFieldController
 
         $playerSummary = json_decode($playerSummaryJson, true);
 
-        if (count($playerSummary['response']['players']) != 1)
-        {
+        if (count($playerSummary['response']['players']) != 1) {
             return steamIDCustomFieldDetails::createErrorDetails($this->lang->words['steamcf_player_not_found']);
         }
         $player = $playerSummary['response']['players'][0];

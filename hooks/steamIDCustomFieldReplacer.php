@@ -25,25 +25,29 @@
  * Replaces that text field with a choice between:
  * - Selecting the user's currently authenticated Steam account
  * - Providing a steam account
+ * - Nothing if the field isn't required.
  *
- * This should populate the field wth the user's Profile ID. The
- * 'steamIDCFParser' hook will take this profile ID and convert it
- * into a suitable format - or throw an error back to the user
- * indicating that something is wrong with the steam they provided.
- * 
  * @author Yiyang Chen <yiyangc91@gmail.com>
  */
-class steamIDCustomFieldReplacer
+class SteamIDCustomFieldReplacer
 {
+    const TEMPLATE_HOOK_NAME = 'nexus_payments';
+    const TEMPLATE_HOOK_FUNCTION = 'viewItem';
+
     // Unfortunately this thing here requires something hooked onto BOTH inner.pre
     // and inner.post.
-    const STEAMCF_PRE_LOOP_TAG = '<!--hook.foreach.skin_nexus_payments.viewItem.fields.inner.pre-->';
-    const STEAMCF_POST_LOOP_TAG = '<!--hook.foreach.skin_nexus_payments.viewItem.fields.inner.post-->';
+    const PRE_LOOP_TAG = '<!--hook.foreach.skin_nexus_payments.viewItem.fields.inner.pre-->';
+    const POST_LOOP_TAG = '<!--hook.foreach.skin_nexus_payments.viewItem.fields.inner.post-->';
 
-    const STEAMCF_STEAM_ID_FIELD_NAME = 'SteamID';
-    const STEAMCF_STEAM_ID_FIELD_TYPE = 'text';
-    const STEAMCF_HOOK_TEMPLATE_NAME = 'steamcf';
-    const STEAMCF_SHOULD_MOCK_STEAM = false;
+    const STEAM_ID_FIELD_NAME = 'SteamID';
+    const STEAM_ID_FIELD_TYPE = 'text';
+    const TEMPLATE_NAME = 'steamcf';
+
+    const ENABLE_MOCK = false;
+    const MOCK_STEAM_ID = '76561197997927385';
+
+    const LANG_PACK_NAME = 'public_steamcf';
+    const LANG_APP_KEY = 'nexus';
 
     private $registry;
     private $member;
@@ -57,66 +61,63 @@ class steamIDCustomFieldReplacer
 
     /**
      * Helper method to get the steam field output.
+     *
+     * @param mixed Some sort of IP. Nexus custom field.
      * @return string Template output.
      */
     private function getSteamFieldTemplate($customField)
     {
-        $steamFieldName = substr($customField->name, strlen(self::STEAMCF_STEAM_ID_FIELD_NAME));
+        $steamFieldName = substr($customField->name, strlen(self::STEAM_ID_FIELD_NAME));
         $steamSignIn = $this->steamOAuth;
         $steamOAuthURL = NULL;
         $detailsClass = $this->detailsClass;
-        $board_url = $this->settings['logins_over_https'] ? $this->settings['board_url_https'] : $this->settings['board_url'];
-        $linkUrl = $board_url.'/interface/board/linksteam.php';
+        $boardUrl = $this->settings['logins_over_https'] ? $this->settings['board_url_https'] : $this->settings['board_url'];
+        $linkUrl = $boardUrl.'/interface/board/linksteam.php';
 
         // Mock things
-        if (self::STEAMCF_SHOULD_MOCK_STEAM)
-        {
-            $steamId = "76561197997927385";
+        if (self::ENABLE_MOCK) {
+            $steamId = self::MOCK_STEAM_ID;
             $steamDetails = $this->controller->getSteamDetails($steamId);
         }
-        else
-        {
+        else {
             // Check if that Steam OAuth plugin is installed
-            if ($this->steamOAuthExists)
-            {
+            if ($this->steamOAuthExists) {
                 // Steam OAuth installed
                 $steamId = $this->member->getProperty('steamid');
-                if (!$steamId)
-                {
+                if (!$steamId) {
                     $steamOAuthURL = $steamSignIn::genUrl($linkUrl);
                     $steamDetails = $detailsClass::createEmptyDetails();
                 }
-                else
-                {
+                else {
                     $steamDetails = $this->controller->getSteamDetails($steamId);
                 }
             }
-            else
-            {
+            else {
                 // Steam OAuth not installed
                 $steamDetails = NULL;
             }
         }
 
-        return $this->registry->output->getTemplate(self::STEAMCF_HOOK_TEMPLATE_NAME)->showField($customField, $steamFieldName, $steamDetails, $steamOAuthURL, $linkUrl);
+        return $this->registry->output->getTemplate(self::TEMPLATE_NAME)->showField($customField, $steamFieldName, $steamDetails, $steamOAuthURL, $linkUrl);
     }
 
     public function __construct()
     {
+        ipsRegistry::getClass('class_localization')->loadLanguageFile(array(self::LANG_PACK_NAME), self::LANG_APP_KEY);
+
         $this->registry	= ipsRegistry::instance();
         $this->member = ipsRegistry::member();
         $this->settings =& $this->registry->fetchSettings();
         $this->DB = $this->registry->DB();
 
-        $this->steamOAuthExists = file_exists(IPS_ROOT_PATH . '/sources/loginauth/steam/lib/steam_openid.php') && $this->DB->checkForField('steamid', 'members');
-        if ($this->steamOAuthExists)
-        {
+        $this->steamOAuthExists = file_exists(IPS_ROOT_PATH .  '/sources/loginauth/steam/lib/steam_openid.php') && $this->DB->checkForField('steamid', 'members');
+        if ($this->steamOAuthExists) {
             $this->steamOAuth = IPSLib::loadLibrary(IPS_ROOT_PATH . '/sources/loginauth/steam/lib/steam_openid.php', 'SteamSignIn');
         }
 
-        $this->detailsClass = IPSLib::loadLibrary(IPS_ROOT_PATH . '/sources/classes/steamcf.php', 'steamIDCustomFieldDetails');
+        $this->detailsClass = IPSLib::loadLibrary(IPS_ROOT_PATH . '/sources/classes/steamcf.php', 'SteamIDCustomFieldDetails');
 
-        $controllerClass = IPSLib::loadLibrary(IPS_ROOT_PATH . '/sources/classes/steamcf.php', 'steamIDCustomFieldController');
+        $controllerClass = IPSLib::loadLibrary(IPS_ROOT_PATH . '/sources/classes/steamcf.php', 'SteamIDCustomFieldController');
         $this->controller = new $controllerClass($this->registry);
     }
     
@@ -133,9 +134,8 @@ class steamIDCustomFieldReplacer
      */
     public function replaceOutput($output, $key)
     {
-        $original_parameters = $this->registry->output->getTemplate('nexus_payments')->functionData['viewItem'];
-        if (!is_array($original_parameters) || !count($original_parameters))
-        {
+        $originalParameters = $this->registry->output->getTemplate(self::TEMPLATE_HOOK_NAME)->functionData[self::TEMPLATE_HOOK_FUNCTION];
+        if (!is_array($originalParameters) || !count($originalParameters)) {
             return $output;
         }
 
@@ -143,37 +143,33 @@ class steamIDCustomFieldReplacer
         // we are hooked onto. We *SHOULD* get one tag per item in the loop.
         $offset = 0;
 
-        foreach ($original_parameters as $parameter)
-        {
-            $customfields = $parameter['customfields'];
+        foreach ($originalParameters as $parameter) {
+            $customFields = $parameter['customfields'];
 
-            foreach ($customfields as $customfield)
-            {
-                $pos_pre = strpos($output, self::STEAMCF_PRE_LOOP_TAG, $offset);
-                if (!$pos_pre) {
+            foreach ($customFields as $customfield) {
+                $posPre = strpos($output, self::PRE_LOOP_TAG, $offset);
+                if (!$posPre) {
                     // Wtf? This is very strange.
                     // Guess we'll silently fail...
                     return $output;
                 }
-                $pos_pre_end = $pos_pre+strlen(self::STEAMCF_PRE_LOOP_TAG);
-                $pos_post = strpos($output, self::STEAMCF_POST_LOOP_TAG, $pos_pre_end);
-                if (!$pos_post) {
+                $posPreEnd = $posPre+strlen(self::PRE_LOOP_TAG);
+                $posPost = strpos($output, self::POST_LOOP_TAG, $posPreEnd);
+                if (!$posPost) {
                     // Um..? So we're missing the post. Silently fail again.
                     return $output;
                 }
-                $data_length = $pos_post - $pos_pre_end;
+                $dataLength = $posPost - $posPreEnd;
 
-                // Everything between $pos_pre_end and $pos_post is dataz
-                if (substr($customfield->name, 0, strlen(self::STEAMCF_STEAM_ID_FIELD_NAME)) === self::STEAMCF_STEAM_ID_FIELD_NAME && $customfield->type === self::STEAMCF_STEAM_ID_FIELD_TYPE)
-                {
-                    $replacement_data = $this->getSteamFieldTemplate($customfield);
-                    $replacement_data_len = strlen($replacement_data);
-                    $output = substr_replace($output, $replacement_data, $pos_pre_end, $data_length);
-                    $offset = $pos_pre_end + $replacement_data_len + strlen(self::STEAMCF_POST_LOOP_TAG);
+                // Everything between $posPreEnd and $posPost is dataz
+                if (substr($customfield->name, 0, strlen(self::STEAM_ID_FIELD_NAME)) === self::STEAM_ID_FIELD_NAME && $customfield->type === self::STEAM_ID_FIELD_TYPE) {
+                    $replacementData = $this->getSteamFieldTemplate($customfield);
+                    $replacementDataLength = strlen($replacementData);
+                    $output = substr_replace($output, $replacementData, $posPreEnd, $dataLength);
+                    $offset = $posPreEnd + $replacementDataLength + strlen(self::POST_LOOP_TAG);
                 }
-                else
-                {
-                    $offset = $pos_post + strlen(self::STEAMCF_POST_LOOP_TAG);
+                else {
+                    $offset = $posPost + strlen(self::POST_LOOP_TAG);
                 }
             }
         }
