@@ -85,7 +85,7 @@ class SteamIDCustomFieldCartReplacer
         }
 
         // If everything good
-        return $steamName . ': ' . $steamId . $extra;
+        return htmlentities($steamName . ': ' . $steamId . $extra);
     }
 
     /**
@@ -203,7 +203,7 @@ class SteamIDCustomFieldCartReplacer
                     $innerOutput[] = $this->createNewSteamOutput($steamDatas[$i], $steamDetails);
                 }
                 else if ($omgErrors) {
-                    $innerOutput[] = $part . ' ERROR (' . $omgErrors . ')';
+                    $innerOutput[] = $part . ' ERROR (' . htmlentities($omgErrors) . ')';
                 }
                 else {
                     $innerOutput[] = $part;

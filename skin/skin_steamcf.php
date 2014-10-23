@@ -44,7 +44,7 @@ $IPBHTML .= <<<EOF
 <li class="field">
     <fieldset class="row1">
     <label for="f_{$f->id}">
-        <strong><if test="fname:|:$fname">{$fname}<else />Steam</if></strong>
+        <strong><if test="fname:|:$fname">{IPSText::utf8ToEntities($fname)}<else />Steam</if></strong>
         <if test="isRequired:|:$f->required"><span class="required">{$this->lang->words['store_required']}</span></if>
     </label>
     <div id="errmsg_{$f->id}" class="message error" style="display: none;">
@@ -90,7 +90,7 @@ $IPBHTML = "";
 $IPBHTML .= <<<EOF
 <if test="isError:|:$err">
     <div class="message error">
-        <strong>{$err}</strong><br />
+        <strong>{IPSText::utf8ToEntities($err)}</strong><br />
         {$this->lang->words['steamcf_contact_admin']}
     </div>
 <else />
@@ -102,7 +102,7 @@ $IPBHTML .= <<<EOF
                 <img src="{$steamDetails->avatar}" />
             </div>
             <div class="left ipsPad">
-                <h3 class="ipsPad_top_bottom_half"><a href="{$steamDetails->profile}">{$steamDetails->name}</a> (<a href="{$linkUrl}">{$this->lang->words['steamcf_not_you']}</a>)</h3>
+                <h3 class="ipsPad_top_bottom_half"><a href="{$steamDetails->profile}">{IPSText::utf8ToEntities($steamDetails->name)}</a> (<a href="{$linkUrl}">{$this->lang->words['steamcf_not_you']}</a>)</h3>
                 {parse template="colorizeStatus" group="steamcf" params="$steamDetails->status"}
             </div>
         </div>

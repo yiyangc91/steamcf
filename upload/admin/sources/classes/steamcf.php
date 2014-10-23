@@ -152,6 +152,21 @@ class SteamIdCustomFieldController
     }
 
     /**
+     * Encodes the entire array.
+     *
+     * @param array Array
+     * @return array Encoded array
+     */
+    private static function urlEncodeArray($arr)
+    {
+        $newArray = array();
+        foreach ($arr as $v) {
+            $newArray[] = urlencode($v);
+        }
+        return $newArray;
+    }
+
+    /**
      * Returns Steam details as an array.
      *
      * @param array Array of steam IDs.
@@ -159,6 +174,9 @@ class SteamIdCustomFieldController
      */
     public function getSteamDetailsBatch($steamIds)
     {
+        // unfuck IDs
+        $steamIds = self::urlEncodeArray($steamIds);
+
         // Check API keys
         if (!$this->steamApiKey) {
             throw new Exception($this->lang->words['steamcf_apikey_error']);
