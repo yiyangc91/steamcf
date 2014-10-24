@@ -176,7 +176,7 @@ $IPBHTML .= <<<EOF
             else if (doWhat == 'use_gift') {
                 finalValue = productForm.elements.namedItem('steam_gift_to_'+cfId).value;
             }
-            else if (doWhat == 'use_none') {
+            else if (doWhat == 'use_ignored') {
                 // None option
                 productForm.elements.namedItem('field'+cfId).value = '';
                 requiredField.style.display = 'none';
@@ -197,7 +197,7 @@ $IPBHTML .= <<<EOF
             if (requiredField) {
                 if (error) {
                     requiredField.style.display = '';
-                    requiredField.innerHTML = error;
+                    requiredField.innerText = error;
                     numErrors++;
                 }
                 else {
