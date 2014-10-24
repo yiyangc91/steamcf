@@ -239,7 +239,7 @@ class SteamIdCustomFieldController
                 $this->classFileManagement->errors = array();
             }
             else {
-                $error = $this->lang->words['steamcf_api_error'] . $status_code;
+                $error = sprintf($this->lang->words['steamcf_api_error'], $status_code);
             }
             throw new Exception($error);
         }
