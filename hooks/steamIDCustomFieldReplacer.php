@@ -43,7 +43,7 @@ class SteamIDCustomFieldReplacer
     const STEAM_ID_FIELD_TYPE = 'text';
     const TEMPLATE_NAME = 'steamcf';
 
-    const ENABLE_MOCK = false;
+    const ENABLE_MOCK = true;
     const MOCK_STEAM_ID = '76561197997927385';
 
     const LANG_PACK_NAME = 'public_steamcf';

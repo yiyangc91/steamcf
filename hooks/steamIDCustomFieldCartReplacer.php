@@ -85,7 +85,7 @@ class SteamIDCustomFieldCartReplacer
         }
 
         // If everything good
-        return htmlentities($steamName . ': ' . $steamId . $extra);
+        return $steamName . ': ' . $steamId . $extra;
     }
 
     /**
@@ -97,7 +97,7 @@ class SteamIDCustomFieldCartReplacer
      */
     private static function getSteamDataIfMatch($part)
     {
-        $success = preg_match('/^SteamID([a-zA-Z]*): (.+)$/', $part, $matches);
+        $success = preg_match('/^SteamID([^:]*): (.+)$/', $part, $matches);
         if ($success) {
             return array(
                 self::STEAM_NAME => $matches[1],
@@ -200,7 +200,7 @@ class SteamIDCustomFieldCartReplacer
             $innerOutput = array();
             foreach ($splitEmData as $part) {
                 if ($steamDatas[$i] != NULL && !$omgErrors) {
-                    $innerOutput[] = $this->createNewSteamOutput($steamDatas[$i], $steamDetails);
+                    $innerOutput[] = htmlentities($this->createNewSteamOutput($steamDatas[$i], $steamDetails));
                 }
                 else if ($omgErrors) {
                     $innerOutput[] = $part . ' ERROR (' . htmlentities($omgErrors) . ')';
