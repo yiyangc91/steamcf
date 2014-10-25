@@ -217,7 +217,7 @@ class SteamIdCustomFieldController
             throw new Exception($this->lang->words['steamcf_api_bad_response']);
         }
         if ($steamProfileDetails->error) {
-            throw new Exception($steamProfileDetails->error);
+            throw new Exception(strval($steamProfileDetails->error));
         }
         $result = $steamProfileDetails->steamID64;
         if (!$result) {
@@ -225,6 +225,7 @@ class SteamIdCustomFieldController
         }
 
         // write the cache value
+        $result = strval($result);
         $cache[$customId] = $result;
         $this->cache->setCache(self::CUSTOMURL_CACHE_KEY, $cache, array('array'=>0, 'donow'=>1));
 

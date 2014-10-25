@@ -68,8 +68,10 @@ class SteamIDCustomFieldVerify extends public_nexus_payments_store
 
         $steamId64s = array();
         try {
-            foreach ($steamIds as $steamId) {
-                $steamId64s[$steamId] = $this->steamCFController->convertMultiSteamIDToSteamID64($steamId);
+            foreach ($steamIds as $fieldId => $steamId) {
+                $converted = $this->steamCFController->convertMultiSteamIDToSteamID64($steamId); 
+                $steamId64s[$steamId] = $converted;
+                $this->request['field' . $fieldId] = $converted;
             }
         }
         catch (Exception $e) {
