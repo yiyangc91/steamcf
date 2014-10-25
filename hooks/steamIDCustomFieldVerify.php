@@ -79,7 +79,12 @@ class SteamIDCustomFieldVerify extends public_nexus_payments_store
         }
 
         // Attempt to validate Steam IDs just by asking Steam
-        $steamDetails = $this->steamCFController->getSteamDetailsBatch($steamId64s);
+        try {
+            $steamDetails = $this->steamCFController->getSteamDetailsBatch($steamId64s);
+        }
+        catch (Exception $e) {
+            $this->registry->output->showError($e->getMessage(), 0, FALSE, '', 500);
+        }
         $validSteamIds = array_map('self::getIdFromDetails', $steamDetails);
 
         // Since $steamId64s is a map of <input> => <steam64>, we filter out all the
