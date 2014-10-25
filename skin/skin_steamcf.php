@@ -146,8 +146,8 @@ $IPBHTML .= <<<EOF
 <script type="text/javascript">
     var steamCF = Array();
     var steamCFRegex = [
-        /^(https?:\/\/)?(www\.)?steamcommunity\.com\/id\/([a-z]+)$/i,
-        /^(https?:\/\/)?(www\.)?steamcommunity\.com\/profiles\/([0-9]+)$/i,
+        /^(https?:\/\/)?(www\.)?steamcommunity\.com\/id\/([a-z]+)/?$/i,
+        /^(https?:\/\/)?(www\.)?steamcommunity\.com\/profiles\/([0-9]+)/?$/i,
         /^[0-9]{0,18}$/i,
         /^STEAM_[0-9]:[01]:[0-9]{0,9}$/,
         /^\[U:[0-9]:[0-9]{0,9}\]$/,

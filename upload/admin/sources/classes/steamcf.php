@@ -144,10 +144,10 @@ class SteamIdCustomFieldController
     {
         // Check ID, ID32, ID64, CustomID, Profile URL, Custom 'URL'
         // Match the URLs first because we can easily change those
-        if (preg_match('#^(https?://)?(www\.)?steamcommunity\.com/id/([a-z]+)$#i', $steamId, $matches)) {
+        if (preg_match('#^(https?://)?(www\.)?steamcommunity\.com/id/([a-z]+)/?$#i', $steamId, $matches)) {
             $steamId = $matches[3];
         }
-        else if (preg_match('#^(https?://)?(www\.)?steamcommunity\.com/profiles/([0-9]+)$#i', $steamId, $matches)) {
+        else if (preg_match('#^(https?://)?(www\.)?steamcommunity\.com/profiles/([0-9]+)/?$#i', $steamId, $matches)) {
             $steamId = $matches[3];
         }
 
