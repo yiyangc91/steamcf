@@ -13,7 +13,6 @@ $lang = array(
 'steamcf_empty_error' => "You did not provide a Steam ID",
 'steamcf_player_not_found' => "Steam profile not found",
 'steamcf_contact_admin' => "Please contact your forum administrator",
-'steamcf_steam_id_description' => 'Provide a Steam ID',
 'steamcf_login_description' => "(Recommended)",
 'steamcf_status_offline' => "Offline",
 'steamcf_status_online' => "Online",
