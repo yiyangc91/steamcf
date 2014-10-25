@@ -80,7 +80,8 @@ class SteamIdCustomFieldDetails
  */
 class SteamIdCustomFieldController
 {
-    const STEAM_API_GET_PLAYER_SUMMARIES = "http://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/";
+    const STEAM_API_GET_PLAYER_SUMMARIES = "http://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=%s&steamids=%s&format=json";
+    const STEAM_GET_PLAYER_XML = "http://steamcommunity.com/id/%s?xml=1";
 
     const LANG_PACK_NAME = 'public_steamcf';
     const LANG_APP_KEY = 'nexus';
@@ -88,8 +89,13 @@ class SteamIdCustomFieldController
     const CACHE_KEY = 'steamcf_cache';
     const CACHE_EXPIRY_SECONDS = 300;
 
+    const CUSTOMURL_CACHE_KEY = 'steamcf_customurl_cache';
+    // No expiry, because it never changes.
+
     // Specified by Steam API
     const MAX_BATCH_SIZE = 100;
+
+    const STEAMID64_BASE = '76561197960265728';
 
     private $registry;
     private $settings;
@@ -125,6 +131,154 @@ class SteamIdCustomFieldController
             $this->lang->words['steamcf_status_looking_to_trade'],
             $this->lang->words['steamcf_status_looking_to_play']
         );
+    }
+
+    /**
+     * Converts any sort of Steam ID to Steam ID 64.
+     * Throws an exception if it can't be converted.
+     *
+     * @param string Some sort of Steam thing
+     * @param string Steam ID 64
+     */
+    public function convertMultiSteamIDToSteamID64($steamId)
+    {
+        // Check ID, ID32, ID64, CustomID, Profile URL, Custom 'URL'
+        // Match the URLs first because we can easily change those
+        if (preg_match('#^(https?://)?(www\.)?steamcommunity\.com/id/([a-z]+)$#i', $steamId, $matches)) {
+            $steamId = $matches[3];
+        }
+        else if (preg_match('#^(https?://)?(www\.)?steamcommunity\.com/profiles/([0-9]+)$#i', $steamId, $matches)) {
+            $steamId = $matches[3];
+        }
+
+        // Already SteamID64?
+        if (preg_match('/^[0-9]{0,18}$/i', $steamId)) {
+            return $steamId;
+        } 
+        else if (preg_match('/^STEAM_[0-9]:[01]:[0-9]{0,9}$/', $steamId)) {
+            return $this->convertSteamIDToSteamID64($steamId);
+        }
+        else if (preg_match('/^\[U:[0-9]:[0-9]{0,9}\]$/', $steamId)) {
+            return $this->convertSteamID32ToSteamID64($steamId);
+        }
+        else if (preg_match('/^[a-z0-9._-]+$/i', $steamId)) {
+            return $this->convertCustomIDToSteamID64($steamId);
+        }
+        else {
+            throw new Exception(sprintf($this->lang->words['steamcf_validation_error'], $steamId));
+        }
+    }
+
+    /**
+     * Converts a customURL e.g. "hylianloach" to a steamID64. Only
+     * pass in the ID section - do not use the full URL!
+     *
+     * @param string The custom ID to convert
+     * @param string SteamID64
+     */
+    private function convertCustomIDToSteamID64($customId)
+    {
+        if (!function_exists('simplexml_load_string')) {
+            throw new Exception(sprintf($this->lang->words['steamcf_library_missing'], 'SimpleXML'));
+        }
+
+        $cache = $this->cache->getCache(self::CUSTOMURL_CACHE_KEY);
+        if (!$cache) {
+            $cache = array();
+        }
+
+        // Try and grab it from the cache first!
+        if (array_key_exists($customId, $cache)) {
+            // Hurray!
+            return $cache[$customId];
+        }
+
+        // This is slightly more bitchy, but doesn't require the API
+        // key. Pull data directly from steamcommunity.
+        $customId = urlencode($customId);
+        $xmlData = $this->classFileManagement->getFileContents(sprintf(self::STEAM_GET_PLAYER_XML, $customId));
+
+        // Check status code
+        $status_code = $this->classFileManagement->http_status_code;
+				if ($status_code != 200) {
+            $errors = $this->classFileManagement->errors;
+            if (count($errors)) {
+                $error = $errors[0];
+                $this->classFileManagement->errors = array();
+            }
+            else {
+                $error = sprintf($this->lang->words['steamcf_api_error'], $status_code);
+            }
+            throw new Exception($error);
+        }
+
+        $steamProfileDetails = simplexml_load_string($xmlData);
+        if (!$steamProfileDetails) {
+            throw new Exception($this->lang->words['steamcf_api_bad_response']);
+        }
+        if ($steamProfileDetails->error) {
+            throw new Exception($steamProfileDetails->error);
+        }
+        $result = $steamProfileDetails->steamID64;
+        if (!$result) {
+            throw new Exception($this->lang->words['steamcf_api_bad_response']);
+        }
+
+        // write the cache value
+        $cache[$customId] = $result;
+        $this->cache->setCache(self::CUSTOMURL_CACHE_KEY, $cache, array('array'=>0, 'donow'=>1));
+
+        return $result;
+    }
+
+    /**
+     * Converts a SteamID23 (e.g. [U:1:XXXXXXX]) to a SteamID64.
+     * Assumes that you give it a valid SteamID32.
+     *
+     * @param string SteamID32
+     * @param string SteamID64
+     */
+    private function convertSteamID32ToSteamID64($steamId)
+    {
+        // Simply add the base. Easy.
+        $exploded = explode(':', $steamId);
+        $idPortion = trim($exploded[2], ']');
+
+        if (PHP_INT_SIZE == 8) {
+            return strval(intval(self::STEAMID64_BASE) + intval($idPortion));
+        }
+        else if (function_exists('bcadd')) {
+            return bcadd(self::STEAMID64_BASE, $idPortion);
+        }
+        else {
+            throw new Exception(sprintf($this->lang->words['steamcf_library_missing'], 'bcmath'));
+        }
+    }
+
+    /**
+     * Converts SteamID to SteamID64. This assumes that the Steam ID is
+     * a syntactically valid SteamID, and the Steam ID belongs to an
+     * individual.
+     *
+     * @param string SteamID.
+     * @return string SteamID64, as a string.
+     */
+    private function convertSteamIDToSteamID64($steamId)
+    {
+        // STEAM_0:1:XXXXXXXX
+        $exploded = explode(':', $steamId);
+
+        if (PHP_INT_SIZE == 8) {
+            return strval(intval(self::STEAMID64_BASE) + intval($exploded[2])*2 + intval($exploded[1]));
+        }
+        else if (function_exists('bcadd')) {
+            // bc must be available on php!
+            return bcadd(bcadd(self::STEAMID64_BASE, bcmul($exploded[2], 2)), $exploded[1]);
+        }
+        else {
+            // ... um.
+            throw new Exception(sprintf($this->lang->words['steamcf_library_missing'], 'bcmath'));
+        }
     }
 
     /**
@@ -228,7 +382,7 @@ class SteamIdCustomFieldController
 
         // Get the Steam IDs from Steam
         $joinedIds = implode(',', $steamIds);
-        $playerSummaryJson = $this->classFileManagement->getFileContents(self::STEAM_API_GET_PLAYER_SUMMARIES . "?key={$apiKey}&steamids={$joinedIds}&format=json");
+        $playerSummaryJson = $this->classFileManagement->getFileContents(sprintf(self::STEAM_API_GET_PLAYER_SUMMARIES, $apiKey, $joinedIds));
 
         // Check status code
         $status_code = $this->classFileManagement->http_status_code;

@@ -99,7 +99,7 @@ $IPBHTML .= <<<EOF
         {$this->lang->words['steamcf_my_account']}
         <div class="ipsBox_container ipsMargin_top clearfix">
             <div class="left ipsBox">
-                <img src="{IPSText::htmlspecialchar($steamDetails->avatar)}" />
+                <img src="{IPSText::htmlspecialchars($steamDetails->avatar)}" />
             </div>
             <div class="left ipsPad">
                 <h3 class="ipsPad_top_bottom_half"><a href="{IPSText::htmlspecialchars($steamDetails->profile)}">{IPSText::htmlspecialchars($steamDetails->name)}</a> (<a href="{$linkUrl}">{$this->lang->words['steamcf_not_you']}</a>)</h3>
@@ -146,15 +146,31 @@ $IPBHTML = "";
 $IPBHTML .= <<<EOF
 <script type="text/javascript">
     var steamCF = Array();
-    var steamCFRegex = /^[0-9]{17}$/i;
+    var steamCFRegex = [
+        /^(https?:\/\/)?(www\.)?steamcommunity\.com\/id\/([a-z]+)$/i,
+        /^(https?:\/\/)?(www\.)?steamcommunity\.com\/profiles\/([0-9]+)$/i,
+        /^[0-9]{0,18}$/i,
+        /^STEAM_[0-9]:[01]:[0-9]{0,9}$/,
+        /^\[U:[0-9]:[0-9]{0,9}\]$/,
+        /^[a-z0-9._-]+$/i
+    ]
 
     function steamCFErrorCheckValue(value) {
         if (!value) {
             return "{$this->lang->words['steamcf_empty_error']}";
         }
 
-        if (!steamCFRegex.match(value)) {
-            return "{$this->lang->words['steamcf_validation_error']}: '" + value + "'";
+        var hasMatch = false;
+        for (var i = 0, l = steamCFRegex.length; i < l; i++) {
+            if (steamCFRegex[i].match(value)) {
+                hasMatch = true;
+                break;
+            }
+        }
+
+        if (!hasMatch) {
+            var errMsg = "{$this->lang->words['steamcf_validation_error']}";
+            return errMsg.replace("%s", value);
         }
 
         return '';

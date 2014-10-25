@@ -63,13 +63,18 @@ class SteamIDCustomFieldVerify extends public_nexus_payments_store
     {
         $this->initializeSteamCFController();
 
-        $steamIds = $this->getSteamFieldValues();
+        $packageId = intval($this->request['id']);
+        $steamIds = $this->getSteamFieldValues($packageId);
 
         $steamId64s = array();
-        foreach ($steamIds as $steamId) {
-            // TODO: Convert values to SteamID64 to allow permissive steam IDs
-            // ...['input'] = <64>
-            $steamId64s[$steamId] = $steamId;
+        try {
+            foreach ($steamIds as $steamId) {
+                $steamId64s[$steamId] = $this->steamCFController->convertMultiSteamIDToSteamID64($steamId);
+                die($steamId64s[$steamId]);
+            }
+        }
+        catch (Exception $e) {
+            $this->registry->output->showError($e->getMessage(), 0, FALSE, '', 400);
         }
 
         // Attempt to validate Steam IDs just by asking Steam
@@ -89,12 +94,11 @@ class SteamIDCustomFieldVerify extends public_nexus_payments_store
     }
 
     /**
-     * Had to do some serious digging to figure out how to do this.
-     * Please IPS, open source nexus. This is ridiculously hard to do.
+     * Get request field values.
      *
      * @return array Field ID to value in request
      */
-    private function getSteamFieldValues()
+    private function getSteamFieldValues($packageId)
     {
         $fields = $this->cache->getCache('package_fields');
         $results = array();
@@ -108,6 +112,14 @@ class SteamIDCustomFieldVerify extends public_nexus_payments_store
             $fieldId = $field['cf_id'];
             $fieldName = $field['cf_name'];
             $fieldType = $field['cf_type'];
+            $packages = $field['packages'];
+
+            // Skip if the field isn't part of our package
+            if (!is_array($packages) || !in_array(strval($packageId), $packages)
+                || !($field['cf_purchase'] || $field['cf_required'])) {
+                continue;
+            }
+            
 
             if (substr($fieldName, 0, strlen(self::STEAM_ID_FIELD_NAME)) === self::STEAM_ID_FIELD_NAME && $fieldType === self::STEAM_ID_FIELD_TYPE) {
                 // "Unfortunately" the value is not also in the cache

@@ -5,6 +5,12 @@ The main purpose of this hook is to replace your item's specified "text fields" 
 
 This optionally requires a [Steam OAuth plugin](https://github.com/Lavoaster/IP.Board-Steam-Authentication-Method), which is automatically detected and used.
 
+## Requirements
+
+pcre
+bcmath
+simplexml
+
 ## Usage
 
 To create the "Steam" field:
@@ -15,4 +21,6 @@ To create the "Steam" field:
 
 ## Images
 ![Fields](https://raw.githubusercontent.com/yiyangc91/yiyangc91.github.io/master/images/steamcf_example_1.png)
+
+
 
