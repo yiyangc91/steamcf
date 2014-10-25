@@ -121,11 +121,17 @@ class SteamIDCustomFieldVerify extends public_nexus_payments_store
                 continue;
             }
             
+            // Skip if the field isn't required, and it's empty
+            $fieldValue = $this->request['field' . $fieldId];
+            if (!$field['cf_required'] && !$fieldValue) {
+                continue;
+            }
 
+            // Do only if the field is our Steam field
             if (substr($fieldName, 0, strlen(self::STEAM_ID_FIELD_NAME)) === self::STEAM_ID_FIELD_NAME && $fieldType === self::STEAM_ID_FIELD_TYPE) {
                 // "Unfortunately" the value is not also in the cache
                 // Grab it straight from the request
-                $results[$fieldId] = $this->request['field' . $fieldId];
+                $results[$fieldId] = $fieldValue;
             }
         }
 
