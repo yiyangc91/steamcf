@@ -70,7 +70,6 @@ class SteamIDCustomFieldVerify extends public_nexus_payments_store
         try {
             foreach ($steamIds as $steamId) {
                 $steamId64s[$steamId] = $this->steamCFController->convertMultiSteamIDToSteamID64($steamId);
-                die($steamId64s[$steamId]);
             }
         }
         catch (Exception $e) {
