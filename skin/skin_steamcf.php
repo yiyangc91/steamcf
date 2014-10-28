@@ -61,7 +61,7 @@ $IPBHTML .= <<<EOF
         </if>
         <li class="field checkbox">
             <input type="radio" class="input_radio" id="steam_use_{$f->id}_gift" name="steam_use_{$f->id}" value="use_gift" <if test="useSteamIdAlternateCheck:|:is_null($steamDetails)">checked="checked"</if> onchange="hideSteamInfo({$f->id})" />
-            <label for="steam_use_{$f->id}_gift">{$this->lang->words['steamcf_steam_id']}: <input type="text" id="steam_gift_to_{$f->id}" name="steam_gift_to_{$f->id}" onclick="$('steam_use_{$f->id}_gift').click()" /></label>
+            <label for="steam_use_{$f->id}_gift">{$this->lang->words['steamcf_steam_id']}: <input type="text" id="steam_gift_to_{$f->id}" name="steam_gift_to_{$f->id}" onclick="$('steam_use_{$f->id}_gift').checked = true; hideSteamInfo({$f->id})" /></label>
         </li>
         <if test="isRequiredOption:|:!$f->required">
             <li class="field checkbox">
