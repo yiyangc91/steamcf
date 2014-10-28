@@ -60,12 +60,12 @@ $IPBHTML .= <<<EOF
             </li>
         </if>
         <li class="field checkbox">
-            <input type="radio" class="input_radio" id="steam_use_{$f->id}_gift" name="steam_use_{$f->id}" value="use_gift" <if test="useSteamIdAlternateCheck:|:is_null($steamDetails)">checked="checked"</if>/>
-            <label for="steam_use_{$f->id}_gift">{$this->lang->words['steamcf_steam_id']}: <input type="text" id="steam_gift_to_{$f->id}" name="steam_gift_to_{$f->id}" onclick="$('steam_use_{$f->id}_gift').checked = true" /></label>
+            <input type="radio" class="input_radio" id="steam_use_{$f->id}_gift" name="steam_use_{$f->id}" value="use_gift" <if test="useSteamIdAlternateCheck:|:is_null($steamDetails)">checked="checked"</if> onchange="hideSteamInfo({$f->id})" />
+            <label for="steam_use_{$f->id}_gift">{$this->lang->words['steamcf_steam_id']}: <input type="text" id="steam_gift_to_{$f->id}" name="steam_gift_to_{$f->id}" onclick="$('steam_use_{$f->id}_gift').click()" /></label>
         </li>
         <if test="isRequiredOption:|:!$f->required">
             <li class="field checkbox">
-                <input type="radio" class="input_radio" id="steam_use_{$f->id}_ignored" name="steam_use_{$f->id}" value="use_ignored" />
+                <input type="radio" class="input_radio" id="steam_use_{$f->id}_ignored" name="steam_use_{$f->id}" value="use_ignored" onchange="hideSteamInfo({$f->id})" />
                 <label for="steam_use_{$f->id}_ignored">{$this->lang->words['steamcf_ignored']}</label>
             </li>
         </if>
@@ -93,19 +93,19 @@ $IPBHTML .= <<<EOF
         {$this->lang->words['steamcf_contact_admin']}
     </div>
 <else />
-    <input type="radio" id="steam_use_{$f->id}_steam" class="input_radio" name="steam_use_{$f->id}" value="use_steam" checked="checked" />
+    <input type="radio" id="steam_use_{$f->id}_steam" class="input_radio" name="steam_use_{$f->id}" value="use_steam" checked="checked" onchange="showSteamInfo({$f->id})" />
     <label for="steam_use_{$f->id}_steam">
         {$this->lang->words['steamcf_my_account']}
-        <div class="ipsBox_container ipsMargin_top clearfix">
-            <div class="left ipsBox">
-                <img src="{IPSText::htmlspecialchars($steamDetails->avatar)}" />
-            </div>
-            <div class="left ipsPad">
-                <h3 class="ipsPad_top_bottom_half"><a href="{IPSText::htmlspecialchars($steamDetails->profile)}">{IPSText::htmlspecialchars($steamDetails->name)}</a> (<a href="{$linkUrl}">{$this->lang->words['steamcf_not_you']}</a>)</h3>
-                {parse template="colorizeStatus" group="steamcf" params="$steamDetails->status"}
-            </div>
-        </div>
     </label>
+    <div class="ipsBox_container ipsMargin_top clearfix" id="steam_info_{$f->id}" style="transition: width 1s;">
+        <div class="left ipsBox">
+            <img src="{IPSText::htmlspecialchars($steamDetails->avatar)}" />
+        </div>
+        <div class="left ipsPad">
+            <h3 class="ipsPad_top_bottom_half"><a href="{IPSText::htmlspecialchars($steamDetails->profile)}">{IPSText::htmlspecialchars($steamDetails->name)}</a> (<a href="{$linkUrl}">{$this->lang->words['steamcf_not_you']}</a>)</h3>
+            {parse template="colorizeStatus" group="steamcf" params="$steamDetails->status"}
+        </div>
+    </div>
     <input type="hidden" name="steam_use_id_{$f->id}" id="steam_use_id_{$f->id}" value="{IPSText::htmlspecialchars($steamDetails->id)}" />
 </if>
 EOF;
@@ -154,6 +154,20 @@ $IPBHTML .= <<<EOF
         /^[a-z0-9._-]+$/i
     ]
 
+    function showSteamInfo(id) {
+        var elem = $('steam_info_'+id);
+        if (elem && elem.style.display === 'none') {
+            new Effect.BlindDown(elem, { duration: 0.4 })
+        }
+    }
+
+    function hideSteamInfo(id) {
+        var elem = $('steam_info_'+id);
+        if (elem && elem.style.display !== 'none') {
+            new Effect.BlindUp(elem, { duration: 0.4 })
+        }
+    }
+
     function steamCFErrorCheckValue(value) {
         if (!value) {
             return "{$this->lang->words['steamcf_empty_error']}";
@@ -182,18 +196,27 @@ $IPBHTML .= <<<EOF
         for (var zomg = 0; zomg < steamCF.length; zomg++) {
             var finalValue;
             var cfId = steamCF[zomg];
-            var doWhat = productForm.elements.namedItem('steam_use_'+cfId).value;
+
+            var formElems = productForm.elements['steam_use_'+cfId];
+            var doWhat;
+            for (var i = 0; i < formElems.length; i++) {
+                if (formElems[i].checked) {
+                    doWhat = formElems[i].value;
+                    break;
+                }
+            }
+    
             var requiredField = $('errmsg_'+cfId);
 
             if (doWhat === 'use_steam') {
-                finalValue = productForm.elements.namedItem('steam_use_id_'+cfId).value;
+                finalValue = $('steam_use_id_'+cfId).value;
             }
             else if (doWhat == 'use_gift') {
-                finalValue = productForm.elements.namedItem('steam_gift_to_'+cfId).value;
+                finalValue = $('steam_gift_to_'+cfId).value;
             }
             else if (doWhat == 'use_ignored') {
                 // None option
-                productForm.elements.namedItem('field'+cfId).value = '';
+                $('f_'+cfId).value = '';
                 requiredField.style.display = 'none';
                 continue;
             }
@@ -208,7 +231,7 @@ $IPBHTML .= <<<EOF
 
             // Derpy error checking
             var error = steamCFErrorCheckValue(finalValue);
-            productForm.elements.namedItem('field'+cfId).value = finalValue;
+            $('f_'+cfId).value = finalValue;
             if (requiredField) {
                 if (error) {
                     requiredField.style.display = '';
