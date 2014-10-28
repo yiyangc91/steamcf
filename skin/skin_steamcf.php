@@ -235,7 +235,7 @@ $IPBHTML .= <<<EOF
             if (requiredField) {
                 if (error) {
                     requiredField.style.display = '';
-                    requiredField.innerText = error;
+                    requiredField.textContent = error;
                     numErrors++;
                 }
                 else {
