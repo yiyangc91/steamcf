@@ -24,6 +24,10 @@
  * Responsible for making sure IPB gives us the hook point in the other class.
  * Simply by existing as hook. Aww yiss.
  *
+ * This is actually used in two locations:
+ * Template Hook: foreach inner.pre skin_nexus_payments.viewItem.fields
+ * Template Hook: foreach inner.post skin_nexus_payments.viewCart.cfields
+ *
  * @author Yiyang Chen <yiyangc91@gmail.com>
  */
 class steamIDCustomFieldNoop

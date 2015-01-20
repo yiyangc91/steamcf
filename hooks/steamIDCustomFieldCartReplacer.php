@@ -22,6 +22,8 @@
 
 /**
  * Replaces the Steam ID on the cart page with a more user friendly Steam ID.
+ *
+ * Template Hook: foreach inner.pre skin_nexus_payments.viewCart.cfields
  * 
  * @author Yiyang Chen <yiyangc91@gmail.com>
  */

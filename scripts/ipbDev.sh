@@ -1,6 +1,15 @@
 #!/bin/bash
-# Symlinks source files to the correct areas
 
+function symlinkForumFile() {
+   if [[ -e "$forumPath/$2" ]]; then
+      echo "$forumPath/$2 already exists, skipping" 1>&2
+      return
+   fi
+   echo "Symlinking '$baseDir/$1' to '$forumPath/$2'" 1>&2
+   ln -s "$baseDir/$1" "$forumPath/$2"
+}
+
+# Symlinks source files to the correct areas
 declare -r LOCAL_UPLOADS_DIR='upload'
 declare -r LOCAL_HOOKS_DIR='hooks'
 declare -r LOCAL_SKIN_DIR='skin'
@@ -10,25 +19,45 @@ declare -r REMOTE_HOOKS_DIR='hooks'
 declare -r REMOTE_SKIN_DIR='cache/skin_cache/master_skin'
 declare -r REMOTE_LANG_DIR='cache/lang_cache/master_lang'
 
-# Get script root directory
-script_path=$(readlink -f "${BASH_SOURCE[0]}")
-script_root=$(dirname $(dirname "$script_path"))
-
 # Grab the forum path as the first argument
+fileSource="${BASH_SOURCE[0]}"
+while [ -L "$fileSource" ]
+do
+   symlinkDir=`cd "\`dirname $fileSource\`" && pwd`
+   fileSource=`readlink "$fileSource"`
+   [[ $fileSource != /* ]] && fileSource="$symlinkDir/$fileSource"
+done
+
+binDir=`dirname "$fileSource"` 
+binDir=`cd "$binDir"; pwd`
+baseDir=`dirname "$binDir"` 
+
+# Check args
 if [[ $# -ne 1 ]]; then
-   echo "Usage: $0 <forum_path>" 1>&2
-   exit 1
+   echo "Usage: $0 (forum_root)" 1>&2
+   exit 2
+fi
+
+# Sanity checks
+if [[ ! -d $1 ]]; then
+   echo "Unexpected: $1 is not a directory" 1>&2
+   exit 2
+fi
+if [[ ! -f "$1/conf_global.php" ]]; then
+   echo "Warning: $1 is probably not IPB" 1>&2
+   exit 2
 fi
 
 # This is not great and clobbers files, and leaves things lying around
-echo "Symlinking files in repository to forum locations..."
-forum_path=$1
-cp -srv "$script_root/$LOCAL_UPLOADS_DIR/." "$forum_path"
-cp -srv "$script_root/$LOCAL_HOOKS_DIR/." "$forum_path/$REMOTE_HOOKS_DIR"
-cp -srv "$script_root/$LOCAL_SKIN_DIR/." "$forum_path/$REMOTE_SKIN_DIR"
-cp -srv "$script_root/$LOCAL_LANG_DIR/." "$forum_path/$REMOTE_LANG_DIR"
+forumPath=$1
 
-# Settings cannot be merely copied, and need to be configured in IPB... have fun.
-echo "You'll need to manually sync settings"
+symlinkForumFile 'upload/admin/sources/classes/steamcf.php' 'admin/sources/classes/steamcf.php'
+symlinkForumFile 'hooks/steamIDCustomFieldCartReplacer.php' 'hooks/steamIDCustomFieldCartReplacer.php'
+symlinkForumFile 'hooks/steamIDCustomFieldJSResource.php' 'hooks/steamIDCustomFieldJSResource.php'
+symlinkForumFile 'hooks/steamIDCustomFieldNoop.php' 'hooks/steamIDCustomFieldNoop.php'
+symlinkForumFile 'hooks/steamIDCustomFieldReplacer.php' 'hooks/steamIDCustomFieldReplacer.php'
+symlinkForumFile 'hooks/steamIDCustomFieldVerify.php' 'hooks/steamIDCustomFieldVerify.php'
+symlinkForumFile 'skin/skin_steamcf.php' 'cache/skin_cache/master_skin/skin_steamcf.php'
+symlinkForumFile 'lang/nexus_public_steamcf.php' 'cache/lang_cache/master_lang/nexus_public_steamcf.php'
 
 exit 0

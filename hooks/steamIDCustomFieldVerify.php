@@ -25,6 +25,8 @@
  * This hook is in charge of verifying that the Steam IDs written by the user
  * are somewhat valid. It does so by asking Steam if the ID is valid.
  *
+ * Action Overloader: public_nexus_payments_store
+ *
  * @author Yiyang Chen <yiyangc91@gmail.com>
  */
 class SteamIDCustomFieldVerify extends public_nexus_payments_store

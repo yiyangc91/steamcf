@@ -22,6 +22,9 @@
 
 /**
  * A hook to inject our custom field JS resources
+ *
+ * Template Hook: foreach outer.pre skin_nexus_payments.viewItem.fields
+ *
  */
 class SteamIDCustomFieldJSResource
 {

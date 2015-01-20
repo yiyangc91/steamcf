@@ -27,6 +27,8 @@
  * - Providing a steam account
  * - Nothing if the field isn't required.
  *
+ * Template Hook: foreach inner.post skin_nexus_payments.viewItem.fields
+ *
  * @author Yiyang Chen <yiyangc91@gmail.com>
  */
 class SteamIDCustomFieldReplacer
