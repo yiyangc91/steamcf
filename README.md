@@ -24,10 +24,15 @@ IP.Nexus packages.
  * simplexml
 
 ### Usage
-
+1. Request an API key from [Steam](http://steamcommunity.com/dev/apikey)
+2. Configure the hook with your API key in the system settings.
+   ![Configuration](http://yiyangc91.github.io/images/steamcf_1.png)
+3. Create a custom field in the IP.Nexus "Custom Package Fields"
+   settings. It's name must begin with the prefix set in the
+   configuration (default is "SteamID").
+   ![Custom Field](http://yiyangc91.github.io/images/steamcf_2.png)
 
 ## Contributing
-
 You need to turn on development mode for IPB. See the buildInDev.php
 script that comes with the IPB distribution.
 
