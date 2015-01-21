@@ -23,6 +23,14 @@ IP.Nexus packages.
  * bcmath (if on a 32-bit system)
  * simplexml
 
+### Setup
+
+1. Copy everything *inside* the "uploads" directory to your forum.
+2. Open the Admin CP. Go to Applications & Modules > Manage Hooks, and
+   choose "Install Hook". Select **steamcf.xml** and install it.
+   ![Installation](http://yiyangc91.github.io/images/steamcf_install.png)
+
+
 ### Usage
 1. Request an API key from [Steam](http://steamcommunity.com/dev/apikey)
 2. Configure the hook with your API key in the system settings.
@@ -31,6 +39,8 @@ IP.Nexus packages.
    settings. It's name must begin with the prefix set in the
    configuration (default is "SteamID").
    ![Custom Field](http://yiyangc91.github.io/images/steamcf_2.png)
+4. Use this field in one of your packages! You're done! Take a look
+   at your store and check if the field is displayed properly.
 
 ## Contributing
 You need to turn on development mode for IPB. See the buildInDev.php
