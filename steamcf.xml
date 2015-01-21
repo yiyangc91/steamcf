@@ -1,0 +1,1320 @@
+<?xml version="1.0" encoding="utf-8"?>
+<hookexport>
+  <hookdata>
+    <config>
+      <hook_name>Steam Custom Package Field</hook_name>
+      <hook_desc>Provides a friendly way for entering Steam account information in IP.Nexus packages.</hook_desc>
+      <hook_author>Yiyang Chen</hook_author>
+      <hook_email>yiyangc91@gmail.com</hook_email>
+      <hook_website>https://github.com/yiyangc91/steamcf</hook_website>
+      <hook_update_check/>
+      <hook_requirements><![CDATA[a:3:{s:21:"required_applications";a:1:{s:5:"nexus";a:3:{s:8:"app_name";s:5:"Nexus";s:11:"min_version";i:15013;s:11:"max_version";i:0;}}s:20:"hook_php_version_min";s:5:"5.3.0";s:20:"hook_php_version_max";s:0:"";}]]></hook_requirements>
+      <hook_version_human>1.0</hook_version_human>
+      <hook_version_long>1.0</hook_version_long>
+      <hook_extra_data><![CDATA[a:4:{s:7:"display";a:3:{s:8:"settings";s:42:"Setting groups: Steam Custom Package Field";s:8:"language";s:516:"From nexus_public_steamcf: steamcf_apikey_error, steamcf_api_bad_response, steamcf_api_error, steamcf_contact_admin, steamcf_empty_error, steamcf_ignored, steamcf_invalid_steam_ids, steamcf_library_missing, steamcf_login_description, steamcf_my_account, steamcf_not_you, steamcf_player_not_found, steamcf_status_away, steamcf_status_busy, steamcf_status_looking_to_play, steamcf_status_looking_to_trade, steamcf_status_offline, steamcf_status_online, steamcf_status_snooze, steamcf_steam_id, steamcf_validation_error";s:9:"templates";s:88:"From skin_steamcf: colorizeStatus, jsResources, showField, showSteamInfo, showSteamLogin";}s:13:"settingGroups";a:1:{i:0;s:7:"steamcf";}s:8:"language";a:1:{s:20:"nexus_public_steamcf";a:21:{i:0;s:20:"steamcf_apikey_error";i:1;s:24:"steamcf_api_bad_response";i:2;s:17:"steamcf_api_error";i:3;s:21:"steamcf_contact_admin";i:4;s:19:"steamcf_empty_error";i:5;s:15:"steamcf_ignored";i:6;s:25:"steamcf_invalid_steam_ids";i:7;s:23:"steamcf_library_missing";i:8;s:25:"steamcf_login_description";i:9;s:18:"steamcf_my_account";i:10;s:15:"steamcf_not_you";i:11;s:24:"steamcf_player_not_found";i:12;s:19:"steamcf_status_away";i:13;s:19:"steamcf_status_busy";i:14;s:30:"steamcf_status_looking_to_play";i:15;s:31:"steamcf_status_looking_to_trade";i:16;s:22:"steamcf_status_offline";i:17;s:21:"steamcf_status_online";i:18;s:21:"steamcf_status_snooze";i:19;s:16:"steamcf_steam_id";i:20;s:24:"steamcf_validation_error";}}s:9:"templates";a:1:{s:12:"skin_steamcf";a:5:{i:0;s:14:"colorizeStatus";i:1;s:11:"jsResources";i:2;s:9:"showField";i:3;s:13:"showSteamInfo";i:4;s:14:"showSteamLogin";}}}]]></hook_extra_data>
+      <hook_key>steamcf</hook_key>
+      <hook_global_caches/>
+    </config>
+  </hookdata>
+  <hookfiles>
+    <file>
+      <hook_file_real>steamIDCustomFieldCartReplacer.php</hook_file_real>
+      <hook_type>templateHooks</hook_type>
+      <hook_classname>SteamIDCustomFieldCartReplacer</hook_classname>
+      <hook_data><![CDATA[a:8:{s:12:"dataLocation";s:0:"";s:14:"libApplication";s:0:"";s:15:"classToOverload";s:0:"";s:9:"skinGroup";s:19:"skin_nexus_payments";s:12:"skinFunction";s:8:"viewCart";s:4:"type";s:7:"foreach";s:2:"id";s:7:"cfields";s:8:"position";s:9:"inner.pre";}]]></hook_data>
+      <hooks_source><![CDATA[<?php
+
+/*
+ * Steam Custom Package Field
+ * Copyright (C) 2014  Yiyang Chen
+ * 
+ * This file is part of Steam Custom Package Field.
+ * 
+ * Steam Custom Package Field is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or (at your
+ * option) any later version.
+ * 
+ * Steam Custom Package Field is distributed in the hope that it will be
+ * useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+ * Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License along with
+ * this program; if not, see <http://www.gnu.org/licenses/>
+ */
+
+/**
+ * Replaces the Steam ID on the cart page with a more user friendly Steam ID.
+ *
+ * Template Hook: foreach inner.pre skin_nexus_payments.viewCart.cfields
+ * 
+ * @author Yiyang Chen <yiyangc91@gmail.com>
+ */
+class SteamIDCustomFieldCartReplacer
+{
+    const PRE_LOOP_TAG = '<!--hook.foreach.skin_nexus_payments.viewCart.cfields.inner.pre-->';
+    const POST_LOOP_TAG = '<!--hook.foreach.skin_nexus_payments.viewCart.cfields.inner.post-->';
+
+    const EM_TAG = '<em>';
+    const EM_CLOSE_TAG = '</em>';
+    const BR_TAG = '<br />';
+
+    // Private use
+    const STEAM_ID = 0;
+    const STEAM_NAME = 1;
+
+    const EM_POS = 0;
+    const EM_LEN = 1;
+
+    const LANG_PACK_NAME = 'public_steamcf';
+    const LANG_APP_KEY = 'nexus';
+
+    const STEAM_ID_FIELD_NAME_SETTING = 'steamcf_field_prefix';
+
+    private $registry;
+    private $settings;
+    private $lang;
+
+    private $controller;
+
+    public function __construct()
+    {
+        $this->lang = ipsRegistry::getClass('class_localization');
+        $this->lang->loadLanguageFile(array(self::LANG_PACK_NAME), self::LANG_APP_KEY);
+
+        $this->registry = ipsRegistry::instance();
+        $this->settings =& $this->registry->fetchSettings();
+
+        $controllerClass = IPSLib::loadLibrary(IPS_ROOT_PATH . '/sources/classes/steamcf.php', 'SteamIdCustomFieldController');
+        $this->controller = new $controllerClass($this->registry);
+    }
+    
+    public function getOutput() {}
+
+    /**
+     * Creates a new customfield output to put in the cart details area.
+     *
+     * @param mixed Data from matching Steam ID.
+     * @return string New output.
+     */
+    private function createNewSteamOutput($data, $steamDetails)
+    {
+        $steamName = $data[self::STEAM_NAME] ? $data[self::STEAM_NAME] : $this->lang->words['steamcf_steam_id'];
+        $steamId = $data[self::STEAM_ID];
+        $extra = '';
+
+        // Attempt to retrieve dude
+        if (array_key_exists($steamId, $steamDetails)) {
+            $details = $steamDetails[$steamId];
+            $steamId = $details->name;
+            $extra = ' (' . $details->profile . ')';
+        }
+        else {
+            $extra = ' WARNING (' . $this->lang->words['steamcf_player_not_found'] . ')';
+        }
+
+        // If everything good
+        return $steamName . ': ' . $steamId . $extra;
+    }
+
+    /**
+     * If we can find the steam name and the steam ID, then return it.
+     *
+     * @param string The extracted custom field data.
+     * @return mixed An array containing the steam name and steam ID,
+     *               or NULL if we could not find either.
+     */
+    private function getSteamDataIfMatch($part)
+    {
+        $fieldName = $this->settings[self::STEAM_ID_FIELD_NAME_SETTING];
+        $regex = sprintf('/^%s([^:]*): (.+)$/', $fieldName);
+        $success = preg_match($regex, $part, $matches);
+        if ($success) {
+            return array(
+                self::STEAM_NAME => $matches[1],
+                self::STEAM_ID => $this->controller->convertMultiSteamIDToSteamID64($matches[2])
+            );
+        }
+        else {
+            return NULL;
+        }
+    }
+
+    private static function getReplacementPositions($output)
+    {
+        $offset = 0;
+        $positions = array();
+
+        while (true) {
+            $posPre = strpos($output, self::PRE_LOOP_TAG, $offset);
+            if (!$posPre) {
+                return $positions;
+            }
+            $posPreEnd = $posPre+strlen(self::PRE_LOOP_TAG);
+            $posPost = strpos($output, self::POST_LOOP_TAG, $posPreEnd);
+            if (!$posPost) {
+                // Unexpected...
+                return $positions;
+            }
+            $data_length = $posPost - $posPreEnd;
+
+            // Find contents of emphasis tag
+            $emPos = strpos($output, self::EM_TAG, $posPreEnd) + strlen(self::EM_TAG);
+            $emEndPos = strpos($output, self::EM_CLOSE_TAG, $emPos);
+            if (!$emPos || !$emEndPos
+                || $emPos >= $posPost
+                || $emEndPos+strlen(self::EM_CLOSE_TAG) >= $posPost) {
+                // Some shit broke with finding <em>
+                return $positions;
+            }
+            $emDataLength = $emEndPos - $emPos;
+
+            // Track positions of Steam IDs
+            $positions[] = array(
+                self::EM_POS => $emPos,
+                self::EM_LEN => $emDataLength,
+            );
+
+            $offset = $posPost + strlen(self::POST_LOOP_TAG);
+        }
+
+        return $positions;
+    }
+
+    /**
+     * In this replace hook, we loop over every potential steam ID in
+     * each cart item details, and replace it with a steam name.
+     *
+     * @param	string		Output
+     * @param	string		Hook key
+     * @return	string		Output parsed
+     */
+    public function replaceOutput($output, $key)
+    {
+        $positions = self::getReplacementPositions($output);
+        $steamDatas = array();
+        $errors = array();
+
+        foreach ($positions as $position) {
+            $emPos = $position[self::EM_POS];
+            $emDataLength = $position[self::EM_LEN];
+
+            $emData = substr($output, $emPos, $emDataLength);
+            $splitEmData = preg_split('/<br *\\/?>/', $emData);
+            
+            foreach ($splitEmData as $part) {
+                try {
+                    $steamDatas[] = $this->getSteamDataIfMatch($part);
+                    $errors[] = NULL;
+                }
+                catch (Exception $e) {
+                    $steamDatas[] = array();
+                    $errors[] = $e->getMessage();
+                }
+            }
+        }
+
+        $steamIds = array();
+        $omgErrors = NULL;
+        foreach ($steamDatas as $steamData) {
+            $steamIds[] = $steamData[self::STEAM_ID];
+        }
+        try {
+            $steamDetails = $this->controller->getSteamDetailsBatch($steamIds);
+        }
+        catch (Exception $e) {
+            $omgErrors = $e->getMessage();
+        }
+
+        // Loop over the positions again
+        $i = 0;
+        $correction = 0;
+        foreach ($positions as $position) {
+            $emPos = $position[self::EM_POS];
+            $emDataLength = $position[self::EM_LEN];
+
+            $emData = substr($output, $emPos+$correction, $emDataLength);
+            $splitEmData = preg_split('/<br *\\/?>/', $emData);
+            
+            $innerOutput = array();
+            foreach ($splitEmData as $part) {
+                if ($steamDatas[$i] != NULL && !$errors[$i] && !$omgErrors) {
+                    $innerOutput[] = htmlentities($this->createNewSteamOutput($steamDatas[$i], $steamDetails));
+                }
+                else if ($steamDatas[$i] != NULL && $omgErrors || $errors[$i]) {
+                    $err = $errors[$i] ? $errors[$i] : $omgErrors;
+                    $innerOutput[] = $part . ' ERROR (' . htmlentities($err) . ')';
+                }
+                else {
+                    $innerOutput[] = $part;
+                }
+                $i++;
+            }
+            $innerOutputStr = implode(self::BR_TAG, $innerOutput);
+            $newDataLength = strlen($innerOutputStr);
+            $output = substr_replace($output, $innerOutputStr, $emPos+$correction, $emDataLength);
+
+            $correction += $newDataLength - $emDataLength;
+        }
+
+        return $output;
+    }
+}
+
+?>
+]]></hooks_source>
+    </file>
+    <file>
+      <hook_file_real>steamIDCustomFieldVerify.php</hook_file_real>
+      <hook_type>commandHooks</hook_type>
+      <hook_classname>SteamIDCustomFieldVerify</hook_classname>
+      <hook_data><![CDATA[a:8:{s:12:"dataLocation";s:0:"";s:14:"libApplication";s:0:"";s:15:"classToOverload";s:27:"public_nexus_payments_store";s:9:"skinGroup";N;s:12:"skinFunction";N;s:4:"type";N;s:2:"id";N;s:8:"position";N;}]]></hook_data>
+      <hooks_source><![CDATA[<?php
+
+/*
+ * Steam Custom Package Field
+ * Copyright (C) 2014  Yiyang Chen
+ * 
+ * This file is part of Steam Custom Package Field.
+ * 
+ * Steam Custom Package Field is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or (at your
+ * option) any later version.
+ * 
+ * Steam Custom Package Field is distributed in the hope that it will be
+ * useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+ * Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License along with
+ * this program; if not, see <http://www.gnu.org/licenses/>
+ */
+
+
+/**
+ * This hook is in charge of verifying that the Steam IDs written by the user
+ * are somewhat valid. It does so by asking Steam if the ID is valid.
+ *
+ * Action Overloader: public_nexus_payments_store
+ *
+ * @author Yiyang Chen <yiyangc91@gmail.com>
+ */
+class SteamIDCustomFieldVerify extends (~extends~)
+{
+    const STEAM_ID_FIELD_NAME_SETTING = 'steamcf_field_prefix';
+    const STEAM_ID_FIELD_TYPE = 'text';
+
+    const STORAGE_FORMAT_SETTING = 'steamcf_storage_format';
+
+    private $steamCFController;
+
+    /**
+     * Sets the steam CF controller.
+     */
+    private function initializeSteamCFController()
+    {
+        if (!$this->steamCFController) {
+            $controllerClass = IPSLib::loadLibrary(IPS_ROOT_PATH . '/sources/classes/steamcf.php', 'SteamIdCustomFieldController');
+            $this->steamCFController = new $controllerClass($this->registry);
+        }
+    }
+
+    /**
+     * Used by array_map to pull the ID from steam details.
+     *
+     * @return string ID.
+     */
+    private static function getIdFromDetails($details)
+    {
+        return $details->id;
+    }
+
+    /**
+     * Overrides the addItem() method from nexus payments to also perform
+     * checking of things.
+     */
+    public function addItem()
+    {
+        $this->initializeSteamCFController();
+
+        $packageId = intval($this->request['id']);
+        $steamIds = $this->getSteamFieldValues($packageId);
+
+        $steamId64s = array(); // Internal representation
+        try {
+            foreach ($steamIds as $fieldId => $steamId) {
+                $converted = $this->steamCFController->convertMultiSteamIDToSteamID64($steamId); 
+                $steamId64s[$steamId] = $converted;
+
+                // This is the thing that's actually stored, and depends on
+                // user preference.
+                if ($this->settings[self::STORAGE_FORMAT_SETTING] === 'steamId') {
+                    $this->request['field' . $fieldId] = $this->steamCFController->convertSteamID64ToSteamID($converted);
+                }
+                else if ($this->settings[self::STORAGE_FORMAT_SETTING] === 'steamId3') {
+                    $this->request['field' . $fieldId] = $this->steamCFController->convertSteamID64ToSteamID3($converted);
+                }
+                else {
+                    $this->request['field' . $fieldId] = $converted;
+                }
+            }
+        }
+        catch (Exception $e) {
+            $this->registry->output->showError($e->getMessage(), 0, FALSE, '', 400);
+        }
+
+        // Attempt to validate Steam IDs just by asking Steam
+        try {
+            $steamDetails = $this->steamCFController->getSteamDetailsBatch($steamId64s);
+        }
+        catch (Exception $e) {
+            $this->registry->output->showError($e->getMessage(), 0, FALSE, '', 500);
+        }
+        $validSteamIds = array_map('self::getIdFromDetails', $steamDetails);
+
+        // Since $steamId64s is a map of <input> => <steam64>, we filter out all the
+        // valid <steam64>. Then we flip the array to get <input> on the other side.
+        $invalidSteamIds = array_diff($steamId64s, $validSteamIds);
+        if (count($invalidSteamIds)) {
+            $invalidInputs = array_flip($invalidSteamIds);
+
+            $this->registry->output->showError(sprintf($this->lang->words['steamcf_invalid_steam_ids'], implode(', ', $invalidInputs)), 0, FALSE, '', 400);
+        }
+        
+        return parent::addItem();
+    }
+
+    /**
+     * Get request field values.
+     *
+     * @return array Field ID to value in request
+     */
+    private function getSteamFieldValues($packageId)
+    {
+        $fields = $this->cache->getCache('package_fields');
+        $results = array();
+
+        // So we'll basically get stuff like cf_id, cf_name, cf_type
+        // Fortunately these are all custom fields (?) and so we can apply
+        // the same sort of logic we did in the "Replacer".
+        // 
+        // This is somewhat duplicate code
+        foreach ($fields as $field) {
+            $fieldId = $field['cf_id'];
+            $fieldName = $field['cf_name'];
+            $fieldType = $field['cf_type'];
+            $packages = $field['packages'];
+
+            // Skip if the field isn't part of our package
+            if (!is_array($packages) || !in_array(strval($packageId), $packages)
+                || !($field['cf_purchase'] || $field['cf_required'])) {
+                continue;
+            }
+            
+            // Skip if the field isn't required, and it's empty
+            $fieldValue = $this->request['field' . $fieldId];
+            if (!$field['cf_required'] && !$fieldValue) {
+                continue;
+            }
+
+            // Do only if the field is our Steam field
+            if (substr($fieldName, 0, strlen($this->settings[self::STEAM_ID_FIELD_NAME_SETTING])) === $this->settings[self::STEAM_ID_FIELD_NAME_SETTING] && $fieldType === self::STEAM_ID_FIELD_TYPE) {
+                // "Unfortunately" the value is not also in the cache
+                // Grab it straight from the request
+                $results[$fieldId] = $fieldValue;
+            }
+        }
+
+        return $results;
+    }
+}
+
+?>
+]]></hooks_source>
+    </file>
+    <file>
+      <hook_file_real>steamIDCustomFieldReplacer.php</hook_file_real>
+      <hook_type>templateHooks</hook_type>
+      <hook_classname>SteamIDCustomFieldReplacer</hook_classname>
+      <hook_data><![CDATA[a:8:{s:12:"dataLocation";s:0:"";s:14:"libApplication";s:0:"";s:15:"classToOverload";s:0:"";s:9:"skinGroup";s:19:"skin_nexus_payments";s:12:"skinFunction";s:8:"viewItem";s:4:"type";s:7:"foreach";s:2:"id";s:6:"fields";s:8:"position";s:10:"inner.post";}]]></hook_data>
+      <hooks_source><![CDATA[<?php
+
+/*
+ * Steam Custom Package Field
+ * Copyright (C) 2014  Yiyang Chen
+ * 
+ * This file is part of Steam Custom Package Field.
+ * 
+ * Steam Custom Package Field is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or (at your
+ * option) any later version.
+ * 
+ * Steam Custom Package Field is distributed in the hope that it will be
+ * useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+ * Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License along with
+ * this program; if not, see <http://www.gnu.org/licenses/>
+ */
+
+/**
+ * Finds an instance of a field type 'text' and named 'SteamID'.
+ * Replaces that text field with a choice between:
+ * - Selecting the user's currently authenticated Steam account
+ * - Providing a steam account
+ * - Nothing if the field isn't required.
+ *
+ * Template Hook: foreach inner.post skin_nexus_payments.viewItem.fields
+ *
+ * @author Yiyang Chen <yiyangc91@gmail.com>
+ */
+class SteamIDCustomFieldReplacer
+{
+    const TEMPLATE_HOOK_NAME = 'nexus_payments';
+    const TEMPLATE_HOOK_FUNCTION = 'viewItem';
+
+    // Unfortunately this thing here requires something hooked onto BOTH inner.pre
+    // and inner.post.
+    const PRE_LOOP_TAG = '<!--hook.foreach.skin_nexus_payments.viewItem.fields.inner.pre-->';
+    const POST_LOOP_TAG = '<!--hook.foreach.skin_nexus_payments.viewItem.fields.inner.post-->';
+
+    const STEAM_ID_FIELD_NAME_SETTING = 'steamcf_field_prefix';
+    const STEAM_ID_FIELD_TYPE = 'text';
+    const TEMPLATE_NAME = 'steamcf';
+
+    const LANG_PACK_NAME = 'public_steamcf';
+    const LANG_APP_KEY = 'nexus';
+
+    private $lang;
+    private $registry;
+    private $member;
+    private $settings;
+    private $DB;
+    private $steamOAuthExists;
+    private $steamOAuth;
+
+    private $detailsClass;
+    private $controller;
+
+    /**
+     * Helper method to get the steam field output.
+     *
+     * @param mixed Some sort of IP. Nexus custom field.
+     * @return string Template output.
+     */
+    private function getSteamFieldTemplate($customField)
+    {
+        $steamFieldName = substr($customField->name, strlen($this->settings[self::STEAM_ID_FIELD_NAME_SETTING]));
+        $steamSignIn = $this->steamOAuth;
+        $steamOAuthURL = NULL;
+        $detailsClass = $this->detailsClass;
+        $boardUrl = $this->settings['logins_over_https'] ? $this->settings['board_url_https'] : $this->settings['board_url'];
+        $linkUrl = $boardUrl.'/interface/board/linksteam.php';
+
+        // Get Steam Details
+        $err = NULL;
+        $steamDetails = NULL;
+        try {
+            if ($this->steamOAuthExists) {
+                // Steam OAuth installed
+                $steamId = $this->member->getProperty('steamid');
+                if (!$steamId) {
+                    $steamOAuthURL = $steamSignIn::genUrl($linkUrl);
+                    $steamDetails = $detailsClass::createEmptyDetails();
+                }
+                else {
+                    $steamDetails = $this->controller->getSteamDetails($steamId);
+                    if (!$steamDetails) {
+                        $err = $this->lang->words['steamcf_player_not_found'];
+                    }
+                }
+            }
+        }
+        catch (Exception $e) {
+            $err = $e->getMessage();
+        }
+
+        return $this->registry->output->getTemplate(self::TEMPLATE_NAME)->showField($customField, $steamFieldName, $steamDetails, $err, $steamOAuthURL, $linkUrl);
+    }
+
+    public function __construct()
+    {
+        $this->lang = ipsRegistry::getClass('class_localization');
+        $this->lang->loadLanguageFile(array(self::LANG_PACK_NAME), self::LANG_APP_KEY);
+
+        $this->registry	= ipsRegistry::instance();
+        $this->member = ipsRegistry::member();
+        $this->settings =& $this->registry->fetchSettings();
+        $this->DB = $this->registry->DB();
+
+        $this->steamOAuthExists = file_exists(IPS_ROOT_PATH .  '/sources/loginauth/steam/lib/steam_openid.php') && $this->DB->checkForField('steamid', 'members') && $this->settings['steamcf_oauth_integration'];
+        if ($this->steamOAuthExists) {
+            $this->steamOAuth = IPSLib::loadLibrary(IPS_ROOT_PATH . '/sources/loginauth/steam/lib/steam_openid.php', 'SteamSignIn');
+        }
+
+        $this->detailsClass = IPSLib::loadLibrary(IPS_ROOT_PATH . '/sources/classes/steamcf.php', 'SteamIdCustomFieldDetails');
+
+        $controllerClass = IPSLib::loadLibrary(IPS_ROOT_PATH . '/sources/classes/steamcf.php', 'SteamIdCustomFieldController');
+        $this->controller = new $controllerClass($this->registry);
+    }
+    
+    public function getOutput() {}
+
+    /**
+     * In this replace hook, we loop over every field, looking for the
+     * "SteamID" field. We then retrieve the template for the SteamID
+     * field and *replace* the ENTIRE block with our HTML.
+     *
+     * @param	string		Output
+     * @param	string		Hook key
+     * @return	string		Output parsed
+     */
+    public function replaceOutput($output, $key)
+    {
+        $originalParameters = $this->registry->output->getTemplate(self::TEMPLATE_HOOK_NAME)->functionData[self::TEMPLATE_HOOK_FUNCTION];
+        if (!is_array($originalParameters) || !count($originalParameters)) {
+            return $output;
+        }
+
+        // The idea here is to perform the same loop as the 'foreach'
+        // we are hooked onto. We *SHOULD* get one tag per item in the loop.
+        $offset = 0;
+
+        foreach ($originalParameters as $parameter) {
+            $customFields = $parameter['customfields'];
+
+            foreach ($customFields as $customfield) {
+                $posPre = strpos($output, self::PRE_LOOP_TAG, $offset);
+                if (!$posPre) {
+                    // Wtf? This is very strange.
+                    // Guess we'll silently fail...
+                    return $output;
+                }
+                $posPreEnd = $posPre+strlen(self::PRE_LOOP_TAG);
+                $posPost = strpos($output, self::POST_LOOP_TAG, $posPreEnd);
+                if (!$posPost) {
+                    // Um..? So we're missing the post. Silently fail again.
+                    return $output;
+                }
+                $dataLength = $posPost - $posPreEnd;
+
+                // Everything between $posPreEnd and $posPost is dataz
+                if (substr($customfield->name, 0, strlen($this->settings[self::STEAM_ID_FIELD_NAME_SETTING])) === $this->settings[self::STEAM_ID_FIELD_NAME_SETTING] && $customfield->type === self::STEAM_ID_FIELD_TYPE) {
+                    $replacementData = $this->getSteamFieldTemplate($customfield);
+                    $replacementDataLength = strlen($replacementData);
+                    $output = substr_replace($output, $replacementData, $posPreEnd, $dataLength);
+                    $offset = $posPreEnd + $replacementDataLength + strlen(self::POST_LOOP_TAG);
+                }
+                else {
+                    $offset = $posPost + strlen(self::POST_LOOP_TAG);
+                }
+            }
+        }
+
+        return $output;
+    }
+
+}
+
+?>
+]]></hooks_source>
+    </file>
+    <file>
+      <hook_file_real>steamIDCustomFieldJSResource.php</hook_file_real>
+      <hook_type>templateHooks</hook_type>
+      <hook_classname>SteamIDCustomFieldJSResource</hook_classname>
+      <hook_data><![CDATA[a:8:{s:12:"dataLocation";s:0:"";s:14:"libApplication";s:0:"";s:15:"classToOverload";s:0:"";s:9:"skinGroup";s:19:"skin_nexus_payments";s:12:"skinFunction";s:8:"viewItem";s:4:"type";s:7:"foreach";s:2:"id";s:6:"fields";s:8:"position";s:9:"outer.pre";}]]></hook_data>
+      <hooks_source><![CDATA[<?php
+
+/*
+ * Steam Custom Package Field
+ * Copyright (C) 2014  Yiyang Chen
+ * 
+ * This file is part of Steam Custom Package Field.
+ * 
+ * Steam Custom Package Field is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or (at your
+ * option) any later version.
+ * 
+ * Steam Custom Package Field is distributed in the hope that it will be
+ * useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+ * Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License along with
+ * this program; if not, see <http://www.gnu.org/licenses/>
+ */
+
+/**
+ * A hook to inject our custom field JS resources
+ *
+ * Template Hook: foreach outer.pre skin_nexus_payments.viewItem.fields
+ *
+ */
+class SteamIDCustomFieldJSResource
+{
+    const STEAMCF_HOOK_TEMPLATE_NAME = 'steamcf';
+
+    const LANG_PACK_NAME = 'public_steamcf';
+    const LANG_APP_KEY = 'nexus';
+
+    private $registry;
+
+    public function getOutput()
+    {
+        return $this->registry->output->getTemplate(self::STEAMCF_HOOK_TEMPLATE_NAME)->jsResources();
+    }
+
+    public function __construct()
+    {
+        ipsRegistry::getClass('class_localization')->loadLanguageFile(array(self::LANG_PACK_NAME), self::LANG_APP_KEY);
+
+        $this->registry = ipsRegistry::instance();
+    }
+}
+
+?>
+]]></hooks_source>
+    </file>
+    <file>
+      <hook_file_real>steamIDCustomFieldNoop.php</hook_file_real>
+      <hook_type>templateHooks</hook_type>
+      <hook_classname>SteamIDCustomFieldNoop</hook_classname>
+      <hook_data><![CDATA[a:8:{s:12:"dataLocation";s:0:"";s:14:"libApplication";s:0:"";s:15:"classToOverload";s:0:"";s:9:"skinGroup";s:19:"skin_nexus_payments";s:12:"skinFunction";s:8:"viewCart";s:4:"type";s:7:"foreach";s:2:"id";s:7:"cfields";s:8:"position";s:10:"inner.post";}]]></hook_data>
+      <hooks_source><![CDATA[<?php
+
+/*
+ * Steam Custom Package Field
+ * Copyright (C) 2014  Yiyang Chen
+ * 
+ * This file is part of Steam Custom Package Field.
+ * 
+ * Steam Custom Package Field is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or (at your
+ * option) any later version.
+ * 
+ * Steam Custom Package Field is distributed in the hope that it will be
+ * useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+ * Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License along with
+ * this program; if not, see <http://www.gnu.org/licenses/>
+ */
+
+/**
+ * Responsible for making sure IPB gives us the hook point in the other class.
+ * Simply by existing as hook. Aww yiss.
+ *
+ * This is actually used in two locations:
+ * Template Hook: foreach inner.pre skin_nexus_payments.viewItem.fields
+ * Template Hook: foreach inner.post skin_nexus_payments.viewCart.cfields
+ *
+ * @author Yiyang Chen <yiyangc91@gmail.com>
+ */
+class SteamIDCustomFieldNoop
+{
+    public function getOutput() {}
+}
+
+?>
+]]></hooks_source>
+    </file>
+    <file>
+      <hook_file_real>steamIDCustomFieldNoop.php</hook_file_real>
+      <hook_type>templateHooks</hook_type>
+      <hook_classname>SteamIDCustomFieldNoop</hook_classname>
+      <hook_data><![CDATA[a:8:{s:12:"dataLocation";s:0:"";s:14:"libApplication";s:0:"";s:15:"classToOverload";s:0:"";s:9:"skinGroup";s:19:"skin_nexus_payments";s:12:"skinFunction";s:8:"viewItem";s:4:"type";s:7:"foreach";s:2:"id";s:6:"fields";s:8:"position";s:9:"inner.pre";}]]></hook_data>
+      <hooks_source><![CDATA[<?php
+
+/*
+ * Steam Custom Package Field
+ * Copyright (C) 2014  Yiyang Chen
+ * 
+ * This file is part of Steam Custom Package Field.
+ * 
+ * Steam Custom Package Field is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or (at your
+ * option) any later version.
+ * 
+ * Steam Custom Package Field is distributed in the hope that it will be
+ * useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+ * Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License along with
+ * this program; if not, see <http://www.gnu.org/licenses/>
+ */
+
+/**
+ * Responsible for making sure IPB gives us the hook point in the other class.
+ * Simply by existing as hook. Aww yiss.
+ *
+ * This is actually used in two locations:
+ * Template Hook: foreach inner.pre skin_nexus_payments.viewItem.fields
+ * Template Hook: foreach inner.post skin_nexus_payments.viewCart.cfields
+ *
+ * @author Yiyang Chen <yiyangc91@gmail.com>
+ */
+class SteamIDCustomFieldNoop
+{
+    public function getOutput() {}
+}
+
+?>
+]]></hooks_source>
+    </file>
+  </hookfiles>
+  <hookextras_settings>
+    <setting>
+      <conf_is_title>1</conf_is_title>
+      <conf_title_title>Steam Custom Package Field</conf_title_title>
+      <conf_title_desc>Settings for the Steam Custom Package Field hook.</conf_title_desc>
+      <conf_title_noshow>0</conf_title_noshow>
+      <conf_title_keyword>steamcf</conf_title_keyword>
+      <conf_title_app>core</conf_title_app>
+      <conf_title_tab>Hooks</conf_title_tab>
+    </setting>
+    <setting>
+      <conf_id>608</conf_id>
+      <conf_title>Steam API Key</conf_title>
+      <conf_description>Steam API as provided by Steam at https://steamcommunity.com/dev/apikey</conf_description>
+      <conf_group>54</conf_group>
+      <conf_type>input</conf_type>
+      <conf_key>steamcf_api_key</conf_key>
+      <conf_value/>
+      <conf_default/>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>1</conf_position>
+      <conf_start_group>Steam</conf_start_group>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords>steam api key</conf_keywords>
+      <conf_title_keyword>steamcf</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_id>611</conf_id>
+      <conf_title>Cache Expiry Time</conf_title>
+      <conf_description>The number of seconds to cache Steam account information for</conf_description>
+      <conf_group>54</conf_group>
+      <conf_type>input</conf_type>
+      <conf_key>steamcf_cache_expiry</conf_key>
+      <conf_value/>
+      <conf_default>300</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>2</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords>steam api cache account info information expiry seconds</conf_keywords>
+      <conf_title_keyword>steamcf</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_id>613</conf_id>
+      <conf_title>Field Prefix</conf_title>
+      <conf_description>Replaces all fields starting with this prefix with the SteamID field</conf_description>
+      <conf_group>54</conf_group>
+      <conf_type>input</conf_type>
+      <conf_key>steamcf_field_prefix</conf_key>
+      <conf_value/>
+      <conf_default>SteamID</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>4</conf_position>
+      <conf_start_group>Hook Settings</conf_start_group>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords>steam custom field id prefix name search</conf_keywords>
+      <conf_title_keyword>steamcf</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_id>610</conf_id>
+      <conf_title>Steam OAuth Integration</conf_title>
+      <conf_description>Enable integration with the Steam OAuth plugin.</conf_description>
+      <conf_group>54</conf_group>
+      <conf_type>yes_no</conf_type>
+      <conf_key>steamcf_oauth_integration</conf_key>
+      <conf_value/>
+      <conf_default>1</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>6</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords>steam oauth integration enable disable login</conf_keywords>
+      <conf_title_keyword>steamcf</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_id>609</conf_id>
+      <conf_title>Storage Format</conf_title>
+      <conf_description><![CDATA[What to save the user's Steam ID in Nexus]]></conf_description>
+      <conf_group>54</conf_group>
+      <conf_type>dropdown</conf_type>
+      <conf_key>steamcf_storage_format</conf_key>
+      <conf_value/>
+      <conf_default>steamId</conf_default>
+      <conf_extra><![CDATA[steamId=Steam ID (STEAM_0:1:23456789)
+steamId3=Steam ID3 ([U:1:234567890])
+steamId64=Steam ID64 (76561197992765754)]]></conf_extra>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>5</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords>save as steam id storage format</conf_keywords>
+      <conf_title_keyword>steamcf</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+    <setting>
+      <conf_id>612</conf_id>
+      <conf_title>Test Mode</conf_title>
+      <conf_description>Enabling test mode disables connectivity with Steam, and instead uses mock data</conf_description>
+      <conf_group>54</conf_group>
+      <conf_type>yes_no</conf_type>
+      <conf_key>steamcf_test_mode</conf_key>
+      <conf_value/>
+      <conf_default>0</conf_default>
+      <conf_extra/>
+      <conf_evalphp/>
+      <conf_protected>1</conf_protected>
+      <conf_position>3</conf_position>
+      <conf_start_group/>
+      <conf_add_cache>1</conf_add_cache>
+      <conf_keywords>mock test mode steam connectivity integration</conf_keywords>
+      <conf_title_keyword>steamcf</conf_title_keyword>
+      <conf_is_title>0</conf_is_title>
+    </setting>
+  </hookextras_settings>
+  <hookextras_language>
+    <language>
+      <word_app>nexus</word_app>
+      <word_pack>public_steamcf</word_pack>
+      <word_key>steamcf_status_away</word_key>
+      <word_default>Away</word_default>
+    </language>
+    <language>
+      <word_app>nexus</word_app>
+      <word_pack>public_steamcf</word_pack>
+      <word_key>steamcf_status_busy</word_key>
+      <word_default>Busy</word_default>
+    </language>
+    <language>
+      <word_app>nexus</word_app>
+      <word_pack>public_steamcf</word_pack>
+      <word_key>steamcf_status_online</word_key>
+      <word_default>Online</word_default>
+    </language>
+    <language>
+      <word_app>nexus</word_app>
+      <word_pack>public_steamcf</word_pack>
+      <word_key>steamcf_status_offline</word_key>
+      <word_default>Offline</word_default>
+    </language>
+    <language>
+      <word_app>nexus</word_app>
+      <word_pack>public_steamcf</word_pack>
+      <word_key>steamcf_login_description</word_key>
+      <word_default>(Recommended)</word_default>
+    </language>
+    <language>
+      <word_app>nexus</word_app>
+      <word_pack>public_steamcf</word_pack>
+      <word_key>steamcf_contact_admin</word_key>
+      <word_default>Please contact your forum administrator</word_default>
+    </language>
+    <language>
+      <word_app>nexus</word_app>
+      <word_pack>public_steamcf</word_pack>
+      <word_key>steamcf_player_not_found</word_key>
+      <word_default>Steam profile not found</word_default>
+    </language>
+    <language>
+      <word_app>nexus</word_app>
+      <word_pack>public_steamcf</word_pack>
+      <word_key>steamcf_empty_error</word_key>
+      <word_default>You did not provide a Steam ID</word_default>
+    </language>
+    <language>
+      <word_app>nexus</word_app>
+      <word_pack>public_steamcf</word_pack>
+      <word_key>steamcf_validation_error</word_key>
+      <word_default><![CDATA[Steam ID is invalid: '%s']]></word_default>
+    </language>
+    <language>
+      <word_app>nexus</word_app>
+      <word_pack>public_steamcf</word_pack>
+      <word_key>steamcf_library_missing</word_key>
+      <word_default><![CDATA[Your PHP installation is missing library '%s']]></word_default>
+    </language>
+    <language>
+      <word_app>nexus</word_app>
+      <word_pack>public_steamcf</word_pack>
+      <word_key>steamcf_api_bad_response</word_key>
+      <word_default>Bad response from Steam</word_default>
+    </language>
+    <language>
+      <word_app>nexus</word_app>
+      <word_pack>public_steamcf</word_pack>
+      <word_key>steamcf_api_error</word_key>
+      <word_default>Could not contact Steam API. HTTP Status Code: %s</word_default>
+    </language>
+    <language>
+      <word_app>nexus</word_app>
+      <word_pack>public_steamcf</word_pack>
+      <word_key>steamcf_apikey_error</word_key>
+      <word_default>Forum administrator forgot to provide Steam API key</word_default>
+    </language>
+    <language>
+      <word_app>nexus</word_app>
+      <word_pack>public_steamcf</word_pack>
+      <word_key>steamcf_not_you</word_key>
+      <word_default>Not you?</word_default>
+    </language>
+    <language>
+      <word_app>nexus</word_app>
+      <word_pack>public_steamcf</word_pack>
+      <word_key>steamcf_ignored</word_key>
+      <word_default>None</word_default>
+    </language>
+    <language>
+      <word_app>nexus</word_app>
+      <word_pack>public_steamcf</word_pack>
+      <word_key>steamcf_steam_id</word_key>
+      <word_default>Steam ID</word_default>
+    </language>
+    <language>
+      <word_app>nexus</word_app>
+      <word_pack>public_steamcf</word_pack>
+      <word_key>steamcf_my_account</word_key>
+      <word_default>My Account</word_default>
+    </language>
+    <language>
+      <word_app>nexus</word_app>
+      <word_pack>public_steamcf</word_pack>
+      <word_key>steamcf_status_snooze</word_key>
+      <word_default>Snooze</word_default>
+    </language>
+    <language>
+      <word_app>nexus</word_app>
+      <word_pack>public_steamcf</word_pack>
+      <word_key>steamcf_status_looking_to_trade</word_key>
+      <word_default>Looking to Trade</word_default>
+    </language>
+    <language>
+      <word_app>nexus</word_app>
+      <word_pack>public_steamcf</word_pack>
+      <word_key>steamcf_status_looking_to_play</word_key>
+      <word_default>Looking to Play</word_default>
+    </language>
+    <language>
+      <word_app>nexus</word_app>
+      <word_pack>public_steamcf</word_pack>
+      <word_key>steamcf_invalid_steam_ids</word_key>
+      <word_default>Invalid Steam ID(s): %s</word_default>
+    </language>
+  </hookextras_language>
+  <hookextras_modules/>
+  <hookextras_help/>
+  <hookextras_templates>
+    <templates>
+      <template_group>skin_steamcf</template_group>
+      <template_content><![CDATA[<span class="ipsBadge
+<if test="isOnline:|:$statusName === $this->lang->words['steamcf_status_online']">
+ipsBadge_green
+</if>
+<if test="isOffline:|:$statusName === $this->lang->words['steamcf_status_offline']">
+ipsBadge_grey
+</if>
+<if test="isBusy:|:$statusName === $this->lang->words['steamcf_status_busy']">
+ipsBadge_red
+</if>
+<if test="isAway:|:$statusName === $this->lang->words['steamcf_status_away']">
+ipsBadge_orange
+</if>
+<if test="isSnooze:|:$statusName === $this->lang->words['steamcf_status_snooze']">
+ipsBadge_lightgrey
+</if>
+<if test="isLookingToTrade:|:$statusName === $this->lang->words['steamcf_status_looking_to_trade']">
+ipsbadge_purple
+</if>
+<if test="isLookingToPlay:|:$statusName === $this->lang->words['steamcf_status_looking_to_play']">
+ipsbadge_purple
+</if>
+">
+{$statusName}
+</span>]]></template_content>
+      <template_name>colorizeStatus</template_name>
+      <template_data>$statusName</template_data>
+      <template_updated>1421841079</template_updated>
+      <template_removable>0</template_removable>
+      <template_added_to>0</template_added_to>
+      <template_user_added>0</template_user_added>
+      <template_user_edited>0</template_user_edited>
+      <template_master_key>root</template_master_key>
+    </templates>
+    <templates>
+      <template_group>skin_steamcf</template_group>
+      <template_content><![CDATA[<script type="text/javascript">
+    var steamCF = Array();
+    var steamCFRegex = [
+        /^(https?:\/\/)?(www\.)?steamcommunity\.com\/id\/([a-z]+)\/?$/i,
+        /^(https?:\/\/)?(www\.)?steamcommunity\.com\/profiles\/([0-9]+)\/?$/i,
+        /^[0-9]{0,18}$/i,
+        /^STEAM_[0-9]:[01]:[0-9]{0,9}$/,
+        /^\[U:[0-9]:[0-9]{0,9}\]$/,
+        /^[a-z0-9._-]+$/i
+    ]
+    function showSteamInfo(id) {
+        var elem = $('steam_info_'+id);
+        if (elem && elem.style.display === 'none') {
+            new Effect.BlindDown(elem, { duration: 0.4 })
+        }
+    }
+    function hideSteamInfo(id) {
+        var elem = $('steam_info_'+id);
+        if (elem && elem.style.display !== 'none') {
+            new Effect.BlindUp(elem, { duration: 0.4 })
+        }
+    }
+    function steamCFErrorCheckValue(value) {
+        if (!value) {
+            return "{$this->lang->words['steamcf_empty_error']}";
+        }
+        var hasMatch = false;
+        for (var i = 0, l = steamCFRegex.length; i < l; i++) {
+            if (steamCFRegex[i].match(value)) {
+                hasMatch = true;
+                break;
+            }
+        }
+        if (!hasMatch) {
+            var errMsg = "{$this->lang->words['steamcf_validation_error']}";
+            return errMsg.replace("%s", value);
+        }
+        return '';
+    }
+    function steamCFFillSteamDetails() {
+        var productForm = $('product-form');
+        var numErrors = 0;
+        for (var zomg = 0; zomg < steamCF.length; zomg++) {
+            var finalValue;
+            var cfId = steamCF[zomg];
+            var formElems = productForm.elements['steam_use_'+cfId];
+            var doWhat;
+            for (var i = 0; i < formElems.length; i++) {
+                if (formElems[i].checked) {
+                    doWhat = formElems[i].value;
+                    break;
+                }
+            }
+    
+            var requiredField = $('errmsg_'+cfId);
+            if (doWhat === 'use_steam') {
+                finalValue = $('steam_use_id_'+cfId).value;
+            }
+            else if (doWhat == 'use_gift') {
+                finalValue = $('steam_gift_to_'+cfId).value;
+            }
+            else if (doWhat == 'use_ignored') {
+                // None option
+                $('f_'+cfId).value = '';
+                requiredField.style.display = 'none';
+                continue;
+            }
+            else {
+                finalValue = '';
+            }
+            // Hacky. Skip everything below if not expanded.
+            if (!optionsExpanded && $('options').style.display == 'none') {
+                return true;
+            }
+            // Derpy error checking
+            var error = steamCFErrorCheckValue(finalValue);
+            $('f_'+cfId).value = finalValue;
+            if (requiredField) {
+                if (error) {
+                    requiredField.style.display = '';
+                    requiredField.textContent = error;
+                    numErrors++;
+                }
+                else {
+                    requiredField.style.display = 'none';
+                }
+            }
+        }
+        return numErrors == 0;
+    }
+    function steamCFMangleClick(element) {
+        if (element.onclick) {
+            var shibe = element.onclick;
+            var awesomeShibe = function(e) {
+                var success = steamCFFillSteamDetails();
+                if (!success) {
+                    return false;
+                }
+                shibe();
+            };
+            element.onclick = awesomeShibe;
+        }
+        else {
+            element.onclick = function(e) {
+                if (!steamCFFillSteamDetails()) {
+                    return false;
+                }
+            };
+        }
+    }
+    // Attach another click event to the "Add to cart" button.
+    // Unfortunately no jquery here, so we manually get this to run on document load
+    function steamCFMangleAddCart() {
+        steamCFMangleClick($('expandOptionsButton'));
+        steamCFMangleClick($('submitButton'));
+    }
+    // Ugh
+    if (window.attachEvent) {
+        window.attachEvent('onload', steamCFMangleAddCart);
+    }
+    else {
+        if (window.onload) {
+            var shibe = window.onload;
+            var awesomeOnload = function() {
+                steamCFMangleAddCart();
+                shibe();
+            };
+            window.onload = awesomeOnload;
+        }
+        else {
+            window.onload = steamCFMangleAddCart;
+        }
+    }
+</script>]]></template_content>
+      <template_name>jsResources</template_name>
+      <template_data/>
+      <template_updated>1421841079</template_updated>
+      <template_removable>0</template_removable>
+      <template_added_to>0</template_added_to>
+      <template_user_added>0</template_user_added>
+      <template_user_edited>0</template_user_edited>
+      <template_master_key>root</template_master_key>
+    </templates>
+    <templates>
+      <template_group>skin_steamcf</template_group>
+      <template_content><![CDATA[<script type="text/javascript">
+    // lol IPB
+    options[options.length + 1] = {$f->id};
+    steamCF[steamCF.length] = {$f->id};
+</script>
+<li class="field">
+    <fieldset class="row1">
+    <label for="f_{$f->id}">
+        <strong><if test="fname:|:$fname">{IPSText::htmlspecialchars($fname)}<else />Steam</if></strong>
+        <if test="isRequired:|:$f->required"><span class="required">{$this->lang->words['store_required']}</span></if>
+    </label>
+    <div id="errmsg_{$f->id}" class="message error" style="display: none;">
+    </div>
+    <ul>
+        <if test="useSteamId:|:!is_null($steamDetails) || !is_null($err)">
+            <li class="field checkbox">
+                <if test="isLoggedInSteam:|:!is_null($err) || $steamDetails->id">
+                    {parse template="showSteamInfo" group="steamcf" params="$f, $steamDetails, $err, $linkUrl"}
+                <else />
+                    {parse template="showSteamLogin" group="steamcf" params="$f, $steamSignInUrl"}
+                </if>
+            </li>
+        </if>
+        <li class="field checkbox">
+            <input type="radio" class="input_radio" id="steam_use_{$f->id}_gift" name="steam_use_{$f->id}" value="use_gift" <if test="useSteamIdAlternateCheck:|:is_null($steamDetails)">checked="checked"</if> onchange="hideSteamInfo({$f->id})" />
+            <label for="steam_use_{$f->id}_gift">{$this->lang->words['steamcf_steam_id']}: </label><input type="text" id="steam_gift_to_{$f->id}" name="steam_gift_to_{$f->id}" onclick="$('steam_use_{$f->id}_gift').click()" />
+        </li>
+        <if test="isRequiredOption:|:!$f->required">
+            <li class="field checkbox">
+                <input type="radio" class="input_radio" id="steam_use_{$f->id}_ignored" name="steam_use_{$f->id}" value="use_ignored" onchange="hideSteamInfo({$f->id})" />
+                <label for="steam_use_{$f->id}_ignored">{$this->lang->words['steamcf_ignored']}</label>
+            </li>
+        </if>
+    </ul>
+    <input type="hidden" id="f_{$f->id}" name="field{$f->id}" value="" />
+    </fieldset>
+</li>]]></template_content>
+      <template_name>showField</template_name>
+      <template_data>$f, $fname, $steamDetails, $err, $steamSignInUrl, $linkUrl</template_data>
+      <template_updated>1421841079</template_updated>
+      <template_removable>0</template_removable>
+      <template_added_to>0</template_added_to>
+      <template_user_added>0</template_user_added>
+      <template_user_edited>0</template_user_edited>
+      <template_master_key>root</template_master_key>
+    </templates>
+    <templates>
+      <template_group>skin_steamcf</template_group>
+      <template_content><![CDATA[<if test="isError:|:$err">
+    <div class="message error">
+        <strong>{IPSText::htmlspecialchars($err)}</strong><br />
+        {$this->lang->words['steamcf_contact_admin']}
+    </div>
+<else />
+    <input type="radio" id="steam_use_{$f->id}_steam" class="input_radio" name="steam_use_{$f->id}" value="use_steam" checked="checked" onchange="showSteamInfo({$f->id})" />
+    <label for="steam_use_{$f->id}_steam">
+        {$this->lang->words['steamcf_my_account']}
+    </label>
+    <div class="ipsBox_container ipsMargin_top clearfix" id="steam_info_{$f->id}" style="transition: width 1s;">
+        <div class="left ipsBox">
+            <img src="{IPSText::htmlspecialchars($steamDetails->avatar)}" />
+        </div>
+        <div class="left ipsPad">
+            <h3 class="ipsPad_top_bottom_half"><a href="{IPSText::htmlspecialchars($steamDetails->profile)}">{IPSText::htmlspecialchars($steamDetails->name)}</a> (<a href="{$linkUrl}">{$this->lang->words['steamcf_not_you']}</a>)</h3>
+            {parse template="colorizeStatus" group="steamcf" params="$steamDetails->status"}
+        </div>
+    </div>
+    <input type="hidden" name="steam_use_id_{$f->id}" id="steam_use_id_{$f->id}" value="{IPSText::htmlspecialchars($steamDetails->id)}" />
+</if>]]></template_content>
+      <template_name>showSteamInfo</template_name>
+      <template_data>$f, $steamDetails, $err, $linkUrl</template_data>
+      <template_updated>1421841079</template_updated>
+      <template_removable>0</template_removable>
+      <template_added_to>0</template_added_to>
+      <template_user_added>0</template_user_added>
+      <template_user_edited>0</template_user_edited>
+      <template_master_key>root</template_master_key>
+    </templates>
+    <templates>
+      <template_group>skin_steamcf</template_group>
+      <template_content><![CDATA[<input type="radio" id="steam_use_{$f->id}_steam" class="input_radio" name="steam_use_{$f->id}" value="use_steam" disabled="disabled" />
+<label for="steam_use_{$f->id}_steam">
+<a href="{$steamSignInUrl}">
+<img alt="Sign in through Steam" src="data:image/png;base64,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" />
+</a>
+</label>
+<span class="desc lighter">{$this->lang->words['steamcf_login_description']}</span>]]></template_content>
+      <template_name>showSteamLogin</template_name>
+      <template_data>$f, $steamSignInUrl</template_data>
+      <template_updated>1421841079</template_updated>
+      <template_removable>0</template_removable>
+      <template_added_to>0</template_added_to>
+      <template_user_added>0</template_user_added>
+      <template_user_edited>0</template_user_edited>
+      <template_master_key>root</template_master_key>
+    </templates>
+  </hookextras_templates>
+  <hookextras_css/>
+  <hookextras_replacements/>
+  <hookextras_tasks/>
+  <hookextras_database_create/>
+  <hookextras_database_alter/>
+  <hookextras_database_update/>
+  <hookextras_database_insert/>
+</hookexport>
