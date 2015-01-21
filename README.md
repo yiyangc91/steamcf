@@ -3,7 +3,7 @@ Steam Custom Package Field
 Provides a friendly way for entering Steam account information in
 IP.Nexus packages.
 
-![Steam Auth Integration](http://yiyangc91.github.io/images/steamcf_example_1.png)
+![Steam Auth Integration](http://yiyangc91.github.io/images/steamcf.png)
 
 ## Features
 * Optional [Steam Authentication](https://github.com/Lavoaster/IP.Board-Steam-Authentication-Method)
@@ -23,11 +23,26 @@ IP.Nexus packages.
  * bcmath (if on a 32-bit system)
  * simplexml
 
-### Usage
+### Setup
 
+1. Copy everything *inside* the **upload** directory to your forum.
+2. Open the Admin CP. Go to Applications & Modules > Manage Hooks, and
+   choose "Install Hook". Select **steamcf.xml** and install it.
+   ![Installation](http://yiyangc91.github.io/images/steamcf_install.png)
+
+
+### Usage
+1. Request an API key from [Steam](http://steamcommunity.com/dev/apikey)
+2. Configure the hook with your API key in the system settings.
+   ![Configuration](http://yiyangc91.github.io/images/steamcf_1.png)
+3. Create a custom field in the IP.Nexus "Custom Package Fields"
+   settings. It's name must begin with the prefix set in the
+   configuration (default is "SteamID").
+   ![Custom Field](http://yiyangc91.github.io/images/steamcf_2.png)
+4. Use this field in one of your packages! You're done! Take a look
+   at your store and check if the field is displayed properly.
 
 ## Contributing
-
 You need to turn on development mode for IPB. See the buildInDev.php
 script that comes with the IPB distribution.
 
