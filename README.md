@@ -1,8 +1,7 @@
 Steam Custom Package Field
 =======
-
-Provides a friendly way of entering Steam account information for
-a store item in IP.Nexus.
+Provides a friendly way for entering Steam account information in
+IP.Nexus packages.
 
 ## Features
 
