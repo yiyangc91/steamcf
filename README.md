@@ -3,7 +3,7 @@ Steam Custom Package Field
 Provides a friendly way for entering Steam account information in
 IP.Nexus packages.
 
-![Steam Auth Integration](http://yiyangc91.github.io/images/steamcf_example_1.png)
+![Steam Auth Integration](http://yiyangc91.github.io/images/steamcf_example.png)
 
 ## Features
 * Optional [Steam Authentication](https://github.com/Lavoaster/IP.Board-Steam-Authentication-Method)
