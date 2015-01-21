@@ -3,32 +3,29 @@ Steam Custom Package Field
 Provides a friendly way for entering Steam account information in
 IP.Nexus packages.
 
-## Features
+![Steam Auth Integration](http://yiyangc91.github.io/images/steamcf_example_1.png)
+![Steam Auth Integration2](http://yiyangc91.github.io/images/steamcf_example_2.png)
 
-* Customisable settings, field name, steam API key
-* Optional steam oauth integration
-* Save field as Steam ID, Steam ID 32, Steam ID 64
-* Accepts any input.
-* Validation of user input
-* Cached steam IDs for performance on large forums
-* Uninstallable without side effects
+## Features
+* Optional [Steam Authentication](https://github.com/Lavoaster/IP.Board-Steam-Authentication-Method)
+  integration.
+* Easy user input of Steam IDs for shop items.
+* Validates user input, and contacts Steam to ensure the ID is valid.
+* Stores data as SteamID, SteamID3, or SteamID64.
+* Caching of Steam IDs for high performance on large forums.
 
 ## Installation
+### Requirements
+* Invision Power Board >3.4.7
+* IP.Nexus >1.5.8
+* (Highly Recommended) [Steam Authentication](https://github.com/Lavoaster/IP.Board-Steam-Authentication-Method)
+* PHP 5.3.0
+ * pcre
+ * bcmath (if on a 32-bit system)
+ * simplexml
 
-IPB >3.4.7
-IP Nexus >1.5.8
-pcre
-bcmath (if on a 32-bit system)
-simplexml
+### Usage
 
-To create the "Steam" field:
-
-1. Create a _Custom Package Field_ in IP. Nexus. Make the type
-   "Textbox" and start the name with "SteamID*X*". The name of the
-   field will be either "Steam", or "*X*" if *X* is not empty.
-2. Assign this field to your packages, configure everything else,
-   and save it.
-3. You are done!
 
 ## Contributing
 
