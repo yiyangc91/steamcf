@@ -25,7 +25,7 @@ IP.Nexus packages.
 
 ### Setup
 
-1. Copy everything *inside* the "uploads" directory to your forum.
+1. Copy everything *inside* the **upload** directory to your forum.
 2. Open the Admin CP. Go to Applications & Modules > Manage Hooks, and
    choose "Install Hook". Select **steamcf.xml** and install it.
    ![Installation](http://yiyangc91.github.io/images/steamcf_install.png)
