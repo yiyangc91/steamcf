@@ -1,14 +1,8 @@
-Steam Custom Field Hook for IP. Nexus
+Steam Custom Package Field
 =======
 
-The main purpose of this hook is to replace your item's specified
-"text fields" with a slightly more user friendly field. It does so
-by scanning for any text fields starting with "SteamID". The reason
-it does this, is because at the time of writing, Nexus does not
-provide an API to add custom fields.
-
-This optionally requires a [Steam OAuth plugin](https://github.com/Lavoaster/IP.Board-Steam-Authentication-Method),
-which is automatically detected and used.
+Provides a friendly way of entering Steam account information for
+a store item in IP.Nexus.
 
 ## Features
 
@@ -43,7 +37,7 @@ You need to turn on development mode for IPB. See the buildInDev.php
 script that comes with the IPB distribution.
 
 There doesn't seem to be a great way to distribute and develop hooks
-for Invision Power Board - I just symlink the files from this repo
+for Invision Power Board - just symlink the files from this repo
 into the forum source code. There's a script in the scripts folder
 which will do this for you. Otherwise, you'll want to manually sync:
 
