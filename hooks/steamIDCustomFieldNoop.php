@@ -30,7 +30,7 @@
  *
  * @author Yiyang Chen <yiyangc91@gmail.com>
  */
-class steamIDCustomFieldNoop
+class SteamIDCustomFieldNoop
 {
     public function getOutput() {}
 }

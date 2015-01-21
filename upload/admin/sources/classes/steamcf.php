@@ -87,7 +87,9 @@ class SteamIdCustomFieldController
     const LANG_APP_KEY = 'nexus';
 
     const CACHE_KEY = 'steamcf_cache';
-    const CACHE_EXPIRY_SECONDS = 300;
+    const CACHE_EXPIRY_SETTING = 'steamcf_cache_expiry';
+    const API_KEY_SETTING = 'steamcf_api_key';
+    const TEST_MODE_SETTING = 'steamcf_test_mode';
 
     const CUSTOMURL_CACHE_KEY = 'steamcf_customurl_cache';
     // No expiry, because it never changes.
@@ -102,7 +104,6 @@ class SteamIdCustomFieldController
     private $lang;
     private $cache;
 
-    private $steamApiKey;
     private $classFileManagement;
 
     private $states;
@@ -116,8 +117,6 @@ class SteamIdCustomFieldController
         $this->lang->loadLanguageFile(array(self::LANG_PACK_NAME), self::LANG_APP_KEY);
 
         $this->cache = $this->registry->cache();
-
-        $this->steamApiKey = $this->settings['steamcf_api_key'];
 
         $classFileManagementClass = IPSLib::loadLibrary( IPS_KERNEL_PATH . 'classFileManagement.php', 'classFileManagement' );
         $this->classFileManagement = new $classFileManagementClass();
@@ -142,7 +141,7 @@ class SteamIdCustomFieldController
      */
     public function convertMultiSteamIDToSteamID64($steamId)
     {
-        // Check ID, ID32, ID64, CustomID, Profile URL, Custom 'URL'
+        // Check ID, ID3, ID64, CustomID, Profile URL, Custom 'URL'
         // Match the URLs first because we can easily change those
         if (preg_match('#^(https?://)?(www\.)?steamcommunity\.com/id/([a-z]+)/?$#i', $steamId, $matches)) {
             $steamId = $matches[3];
@@ -159,7 +158,7 @@ class SteamIdCustomFieldController
             return $this->convertSteamIDToSteamID64($steamId);
         }
         else if (preg_match('/^\[U:[0-9]:[0-9]{0,9}\]$/', $steamId)) {
-            return $this->convertSteamID32ToSteamID64($steamId);
+            return $this->convertSteamID3ToSteamID64($steamId);
         }
         else if (preg_match('/^[a-z0-9._-]+$/i', $steamId)) {
             return $this->convertCustomIDToSteamID64($steamId);
@@ -170,14 +169,64 @@ class SteamIdCustomFieldController
     }
 
     /**
+     * Converts a SteamID64 to a SteamID.
+     *
+     * @param string SteamID64
+     * @return string SteamID
+     */
+    public function convertSteamID64ToSteamID($steamId64)
+    {
+        if (PHP_INT_SIZE == 8) {
+            $steamId32 = intval($steamId64) - intval(self::STEAMID64_BASE);
+            $part1 = $steamId32 & 1;
+            $part2 = $steamId32 / 2;
+            return sprintf('STEAM_0:%u:%u', $part1, $part2);
+        }
+        else if (function_exists('bcadd')) {
+            $steamId32 = bcsub($steamId64, self::STEAMID64_BASE);
+            $part1 = int(substr($steamId32, -1)) % 1;
+            $part2 = bcdiv($steamId32, 2);
+            return sprintf('STEAM_0:%u:%s', $part1, $part2);
+        }
+        else {
+            throw new Exception(sprintf($this->lang->words['steamcf_library_missing'], 'bcmath'));
+        }
+    }
+
+    /**
+     * Converts a SteamID64 to a SteamID3.
+     *
+     * @param string SteamID64
+     * @return string SteamID3
+     */
+    public function convertSteamID64ToSteamID3($steamId64)
+    {
+        if (PHP_INT_SIZE == 8) {
+            $steamId32 = intval($steamId64) - intval(self::STEAMID64_BASE);
+            return sprintf('[U:1:%u]', $steamId32);
+        }
+        else if (function_exists('bcadd')) {
+            $steamId32 = bcsub($steamId64, self::STEAMID64_BASE);
+            return sprintf('[U:1:%s]', $steamId32);
+        }
+        else {
+            throw new Exception(sprintf($this->lang->words['steamcf_library_missing'], 'bcmath'));
+        }
+    }
+
+    /**
      * Converts a customURL e.g. "hylianloach" to a steamID64. Only
      * pass in the ID section - do not use the full URL!
      *
      * @param string The custom ID to convert
-     * @param string SteamID64
+     * @return string SteamID64
      */
     private function convertCustomIDToSteamID64($customId)
     {
+        if ($this->settings[self::TEST_MODE_SETTING]) {
+            return '76561198087654321';
+        }
+
         if (!function_exists('simplexml_load_string')) {
             throw new Exception(sprintf($this->lang->words['steamcf_library_missing'], 'SimpleXML'));
         }
@@ -234,12 +283,12 @@ class SteamIdCustomFieldController
 
     /**
      * Converts a SteamID23 (e.g. [U:1:XXXXXXX]) to a SteamID64.
-     * Assumes that you give it a valid SteamID32.
+     * Assumes that you give it a valid SteamID3.
      *
-     * @param string SteamID32
-     * @param string SteamID64
+     * @param string SteamID3
+     * @return string SteamID64
      */
-    private function convertSteamID32ToSteamID64($steamId)
+    private function convertSteamID3ToSteamID64($steamId)
     {
         // Simply add the base. Easy.
         $exploded = explode(':', $steamId);
@@ -293,12 +342,12 @@ class SteamIdCustomFieldController
         $steamId = urlencode($steamId);
 
         // Check API keys
-        if (!$this->steamApiKey) {
+        if (!$this->settings[self::API_KEY_SETTING]) {
             throw new Exception($this->lang->words['steamcf_apikey_error']);
         }
 
         // Ask the steam
-        $results = $this->querySteamCached(array($steamId), $this->steamApiKey);
+        $results = $this->querySteamCached(array($steamId), $this->settings[self::API_KEY_SETTING]);
         if (!array_key_exists($steamId, $results)) {
             return NULL;
         }
@@ -333,7 +382,7 @@ class SteamIdCustomFieldController
         $steamIds = self::urlEncodeArray($steamIds);
 
         // Check API keys
-        if (!$this->steamApiKey) {
+        if (!$this->settings[self::API_KEY_SETTING]) {
             throw new Exception($this->lang->words['steamcf_apikey_error']);
         }
 
@@ -341,7 +390,23 @@ class SteamIdCustomFieldController
         $results = array();
 
         foreach ($chunkedSteamIds as $chunk) {
-            $results += $this->querySteamCached($chunk, $this->steamApiKey);
+            $results += $this->querySteamCached($chunk, $this->settings[self::API_KEY_SETTING]);
+        }
+
+        return $results;
+    }
+
+    private function mockSteamData($steamIds)
+    {
+        $results = array();
+
+        foreach ($steamIds as $steamId) {
+            $results[$steamId] = new SteamIdCustomFieldDetails(
+                $steamId,
+                'http://www.example.com',
+                'http://www.example.com/example.png',
+                'example',
+                'Online');
         }
 
         return $results;
@@ -349,6 +414,10 @@ class SteamIdCustomFieldController
 
     private function querySteamCached($steamIds, $apiKey)
     {
+        if ($this->settings[self::TEST_MODE_SETTING]) {
+            return $this->mockSteamData($steamIds);
+        }
+
         $untouchedIds = array();
         $results = array();
         $cache = $this->cache->getCache(self::CACHE_KEY);
@@ -367,7 +436,7 @@ class SteamIdCustomFieldController
 
         $queriedResults = $this->querySteam($untouchedIds, $apiKey);
         foreach ($queriedResults as $result) {
-            $cache[$result->id] = new SteamIdCacheEntry($result, time() + self::CACHE_EXPIRY_SECONDS);
+            $cache[$result->id] = new SteamIdCacheEntry($result, time() + $this->settings[self::CACHE_EXPIRY_SETTING]);
         }
 
         $this->cache->setCache(self::CACHE_KEY, $cache, array('array'=>1, 'donow'=>1));

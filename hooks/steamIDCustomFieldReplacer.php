@@ -41,12 +41,9 @@ class SteamIDCustomFieldReplacer
     const PRE_LOOP_TAG = '<!--hook.foreach.skin_nexus_payments.viewItem.fields.inner.pre-->';
     const POST_LOOP_TAG = '<!--hook.foreach.skin_nexus_payments.viewItem.fields.inner.post-->';
 
-    const STEAM_ID_FIELD_NAME = 'SteamID';
+    const STEAM_ID_FIELD_NAME_SETTING = 'steamcf_field_prefix';
     const STEAM_ID_FIELD_TYPE = 'text';
     const TEMPLATE_NAME = 'steamcf';
-
-    const ENABLE_MOCK = false;
-    const MOCK_STEAM_ID = '76561197997927385';
 
     const LANG_PACK_NAME = 'public_steamcf';
     const LANG_APP_KEY = 'nexus';
@@ -70,7 +67,7 @@ class SteamIDCustomFieldReplacer
      */
     private function getSteamFieldTemplate($customField)
     {
-        $steamFieldName = substr($customField->name, strlen(self::STEAM_ID_FIELD_NAME));
+        $steamFieldName = substr($customField->name, strlen($this->settings[self::STEAM_ID_FIELD_NAME_SETTING]));
         $steamSignIn = $this->steamOAuth;
         $steamOAuthURL = NULL;
         $detailsClass = $this->detailsClass;
@@ -81,11 +78,7 @@ class SteamIDCustomFieldReplacer
         $err = NULL;
         $steamDetails = NULL;
         try {
-            if (self::ENABLE_MOCK) {
-                $steamId = self::MOCK_STEAM_ID;
-                $steamDetails = $this->controller->getSteamDetails($steamId);
-            }
-            else if ($this->steamOAuthExists) {
+            if ($this->steamOAuthExists) {
                 // Steam OAuth installed
                 $steamId = $this->member->getProperty('steamid');
                 if (!$steamId) {
@@ -117,7 +110,7 @@ class SteamIDCustomFieldReplacer
         $this->settings =& $this->registry->fetchSettings();
         $this->DB = $this->registry->DB();
 
-        $this->steamOAuthExists = file_exists(IPS_ROOT_PATH .  '/sources/loginauth/steam/lib/steam_openid.php') && $this->DB->checkForField('steamid', 'members');
+        $this->steamOAuthExists = file_exists(IPS_ROOT_PATH .  '/sources/loginauth/steam/lib/steam_openid.php') && $this->DB->checkForField('steamid', 'members') && $this->settings['steamcf_oauth_integration'];
         if ($this->steamOAuthExists) {
             $this->steamOAuth = IPSLib::loadLibrary(IPS_ROOT_PATH . '/sources/loginauth/steam/lib/steam_openid.php', 'SteamSignIn');
         }
@@ -169,7 +162,7 @@ class SteamIDCustomFieldReplacer
                 $dataLength = $posPost - $posPreEnd;
 
                 // Everything between $posPreEnd and $posPost is dataz
-                if (substr($customfield->name, 0, strlen(self::STEAM_ID_FIELD_NAME)) === self::STEAM_ID_FIELD_NAME && $customfield->type === self::STEAM_ID_FIELD_TYPE) {
+                if (substr($customfield->name, 0, strlen($this->settings[self::STEAM_ID_FIELD_NAME_SETTING])) === $this->settings[self::STEAM_ID_FIELD_NAME_SETTING] && $customfield->type === self::STEAM_ID_FIELD_TYPE) {
                     $replacementData = $this->getSteamFieldTemplate($customfield);
                     $replacementDataLength = strlen($replacementData);
                     $output = substr_replace($output, $replacementData, $posPreEnd, $dataLength);

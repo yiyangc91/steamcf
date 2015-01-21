@@ -46,7 +46,10 @@ class SteamIDCustomFieldCartReplacer
     const LANG_PACK_NAME = 'public_steamcf';
     const LANG_APP_KEY = 'nexus';
 
+    const STEAM_ID_FIELD_NAME_SETTING = 'steamcf_field_prefix';
+
     private $registry;
+    private $settings;
     private $lang;
 
     private $controller;
@@ -56,7 +59,8 @@ class SteamIDCustomFieldCartReplacer
         $this->lang = ipsRegistry::getClass('class_localization');
         $this->lang->loadLanguageFile(array(self::LANG_PACK_NAME), self::LANG_APP_KEY);
 
-        $this->registry	= ipsRegistry::instance();
+        $this->registry = ipsRegistry::instance();
+        $this->settings =& $this->registry->fetchSettings();
 
         $controllerClass = IPSLib::loadLibrary(IPS_ROOT_PATH . '/sources/classes/steamcf.php', 'SteamIdCustomFieldController');
         $this->controller = new $controllerClass($this->registry);
@@ -97,13 +101,15 @@ class SteamIDCustomFieldCartReplacer
      * @return mixed An array containing the steam name and steam ID,
      *               or NULL if we could not find either.
      */
-    private static function getSteamDataIfMatch($part)
+    private function getSteamDataIfMatch($part)
     {
-        $success = preg_match('/^SteamID([^:]*): (.+)$/', $part, $matches);
+        $fieldName = $this->settings[self::STEAM_ID_FIELD_NAME_SETTING];
+        $regex = sprintf('/^%s([^:]*): (.+)$/', $fieldName);
+        $success = preg_match($regex, $part, $matches);
         if ($success) {
             return array(
                 self::STEAM_NAME => $matches[1],
-                self::STEAM_ID => $matches[2]
+                self::STEAM_ID => $this->controller->convertMultiSteamIDToSteamID64($matches[2])
             );
         }
         else {
@@ -164,6 +170,7 @@ class SteamIDCustomFieldCartReplacer
     {
         $positions = self::getReplacementPositions($output);
         $steamDatas = array();
+        $errors = array();
 
         foreach ($positions as $position) {
             $emPos = $position[self::EM_POS];
@@ -173,7 +180,14 @@ class SteamIDCustomFieldCartReplacer
             $splitEmData = preg_split('/<br *\\/?>/', $emData);
             
             foreach ($splitEmData as $part) {
-                $steamDatas[] = self::getSteamDataIfMatch($part);
+                try {
+                    $steamDatas[] = $this->getSteamDataIfMatch($part);
+                    $errors[] = NULL;
+                }
+                catch (Exception $e) {
+                    $steamDatas[] = array();
+                    $errors[] = $e->getMessage();
+                }
             }
         }
 
@@ -201,11 +215,12 @@ class SteamIDCustomFieldCartReplacer
             
             $innerOutput = array();
             foreach ($splitEmData as $part) {
-                if ($steamDatas[$i] != NULL && !$omgErrors) {
+                if ($steamDatas[$i] != NULL && !$errors[$i] && !$omgErrors) {
                     $innerOutput[] = htmlentities($this->createNewSteamOutput($steamDatas[$i], $steamDetails));
                 }
-                else if ($omgErrors) {
-                    $innerOutput[] = $part . ' ERROR (' . htmlentities($omgErrors) . ')';
+                else if ($steamDatas[$i] != NULL && $omgErrors || $errors[$i]) {
+                    $err = $errors[$i] ? $errors[$i] : $omgErrors;
+                    $innerOutput[] = $part . ' ERROR (' . htmlentities($err) . ')';
                 }
                 else {
                     $innerOutput[] = $part;

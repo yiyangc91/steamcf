@@ -31,8 +31,10 @@
  */
 class SteamIDCustomFieldVerify extends public_nexus_payments_store
 {
-    const STEAM_ID_FIELD_NAME = 'SteamID';
+    const STEAM_ID_FIELD_NAME_SETTING = 'steamcf_field_prefix';
     const STEAM_ID_FIELD_TYPE = 'text';
+
+    const STORAGE_FORMAT_SETTING = 'steamcf_storage_format';
 
     private $steamCFController;
 
@@ -68,12 +70,23 @@ class SteamIDCustomFieldVerify extends public_nexus_payments_store
         $packageId = intval($this->request['id']);
         $steamIds = $this->getSteamFieldValues($packageId);
 
-        $steamId64s = array();
+        $steamId64s = array(); // Internal representation
         try {
             foreach ($steamIds as $fieldId => $steamId) {
                 $converted = $this->steamCFController->convertMultiSteamIDToSteamID64($steamId); 
                 $steamId64s[$steamId] = $converted;
-                $this->request['field' . $fieldId] = $converted;
+
+                // This is the thing that's actually stored, and depends on
+                // user preference.
+                if ($this->settings[self::STORAGE_FORMAT_SETTING] === 'steamId') {
+                    $this->request['field' . $fieldId] = $this->steamCFController->convertSteamID64ToSteamID($converted);
+                }
+                else if ($this->settings[self::STORAGE_FORMAT_SETTING] === 'steamId3') {
+                    $this->request['field' . $fieldId] = $this->steamCFController->convertSteamID64ToSteamID3($converted);
+                }
+                else {
+                    $this->request['field' . $fieldId] = $converted;
+                }
             }
         }
         catch (Exception $e) {
@@ -135,7 +148,7 @@ class SteamIDCustomFieldVerify extends public_nexus_payments_store
             }
 
             // Do only if the field is our Steam field
-            if (substr($fieldName, 0, strlen(self::STEAM_ID_FIELD_NAME)) === self::STEAM_ID_FIELD_NAME && $fieldType === self::STEAM_ID_FIELD_TYPE) {
+            if (substr($fieldName, 0, strlen($this->settings[self::STEAM_ID_FIELD_NAME_SETTING])) === $this->settings[self::STEAM_ID_FIELD_NAME_SETTING] && $fieldType === self::STEAM_ID_FIELD_TYPE) {
                 // "Unfortunately" the value is not also in the cache
                 // Grab it straight from the request
                 $results[$fieldId] = $fieldValue;

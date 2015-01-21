@@ -25,7 +25,7 @@ which is automatically detected and used.
 IPB >3.4.7
 IP Nexus >1.5.8
 pcre
-bcmath
+bcmath (if on a 32-bit system)
 simplexml
 
 To create the "Steam" field:
@@ -39,7 +39,8 @@ To create the "Steam" field:
 
 ## Contributing
 
-Turn on [development mode](https://www.invisionpower.com/support/guides/_/advanced-and-developers/miscellaneous/developers-mode-r147).
+You need to turn on development mode for IPB. See the buildInDev.php
+script that comes with the IPB distribution.
 
 There doesn't seem to be a great way to distribute and develop hooks
 for Invision Power Board - I just symlink the files from this repo
