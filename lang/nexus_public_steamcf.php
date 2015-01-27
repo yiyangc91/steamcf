@@ -1,9 +1,10 @@
 <?php
 
 $lang = array(
-'steamcf_my_account' => "My Account",
-'steamcf_steam_id' => "Steam ID",
+'steamcf_my_account' => "Use my linked Steam account",
+'steamcf_steam_id' => "Enter a Steam ID",
 'steamcf_ignored' => "None",
+'steamcf_steam_id_input' => "Steam ID",
 'steamcf_not_you' => "Not you?",
 'steamcf_apikey_error' => "Forum administrator forgot to provide Steam API key",
 'steamcf_api_error' => "Could not contact Steam API. HTTP Status Code: %s",
