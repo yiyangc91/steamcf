@@ -76,7 +76,7 @@ class SteamIDCustomFieldCartReplacer
      */
     private function createNewSteamOutput($data, $steamDetails)
     {
-        $steamName = $data[self::STEAM_NAME] ? $data[self::STEAM_NAME] : $this->lang->words['steamcf_steam_id'];
+        $steamName = $data[self::STEAM_NAME] ? $data[self::STEAM_NAME] : $this->lang->words['steamcf_steam_id_input'];
         $steamId = $data[self::STEAM_ID];
         $extra = '';
 
